@@ -1,12 +1,12 @@
-# <a href="https://visibl.ai"><img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/e2f040dd-3dda-408b-e767-b5c02ed1ec00/thumb" alt="Visibl" width="32" height="32" style="vertical-align: middle;"> visibl - One Shot Book to Movie</a>
+# <a href="https://visibl.ai"><img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/e2f040dd-3dda-408b-e767-b5c02ed1ec00/thumb" alt="Visibl" width="32" height="32" style="vertical-align: middle;"> visibl.ai - One Shot Book to Movie</a>
 
 <p align="center">
-  <strong>Converting fiction novels into user guided visual narratives</strong>
+  <strong>Transform fiction novels into user guided visual narratives</strong>
 </p>
 
 <p align="center">
   <a href="https://visibl.ai">
-    <img src="https://cdn.visibl.ai/visibl-marketing-gif.gif" alt="Visibl demonstration" width="50%" style="max-width: 400px; border-radius: 10px;">
+    <img src="https://cdn.visibl.ai/visibl-gif-small.gif" alt="Visibl demonstration" width="100%" style="max-width: 300px; border-radius: 10px;">
   </a>
 </p>
 
