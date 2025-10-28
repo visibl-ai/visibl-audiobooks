@@ -1,22 +1,16 @@
 # <a href="https://visibl.ai"><img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/e2f040dd-3dda-408b-e767-b5c02ed1ec00/thumb" alt="Visibl" width="32" height="32" style="vertical-align: middle;"> visibl.ai - One Shot Book to Movie</a>
-
 <p align="center">
   <strong>Transform fiction novels into user guided visual narratives</strong>
 </p>
-
-<p align="center">
-  <a href="https://visibl.ai">
-    <video src="https://cdn.visibl.ai/visibl-mobile-intro%20(720p).mp4"
-           autoplay loop muted playsinline width="400"></video>
-  </a>
-</p>
-
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/101408e8-a0a5-4b96-8751-b9e20d79f7c1">
+  </video>
+</div>
 <p align="center">
   <a href="https://testflight.apple.com/join/B3P1abHk">
     <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/b272a654-2e2b-411c-2561-5c94e50e7f00/thumb" alt="Download for iPhone" width="200">
   </a>
 </p>
-
 <p align="center">
   <a href="https://testflight.apple.com/join/B3P1abHk">
     <img src="https://img.shields.io/badge/TestFlight-Beta-blue?style=flat-square&logo=apple" alt="TestFlight Beta">
