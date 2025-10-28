@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>APP_DISCORD_SERVER_URL</key>
+	<string>$(APP_DISCORD_SERVER_URL)</string>
+	<key>CFBundleName</key>
+	<string>$(APP_NAME)</string>
+	<key>POSTHOG_HOST</key>
+	<string>$(POSTHOG_HOST)</string>
+	<key>POSTHOG_API_KEY</key>
+	<string>$(POSTHOG_API_KEY)</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app uses speech recognition to transcribe audio files.</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>APP_CATALOGUE_URL</key>
+	<string>$(APP_CATALOGUE_URL)</string>
+	<key>APP_CLOUD_FUNC_REGION</key>
+	<string>$(APP_CLOUD_FUNC_REGION)</string>
+	<key>APP_PRIVATE_POLICY_URL</key>
+	<string>$(APP_PRIVATE_POLICY_URL)</string>
+	<key>APP_RATE_US_URL</key>
+	<string>$(APP_RATE_US_URL)</string>
+	<key>APP_RTDB_URL</key>
+	<string>$(APP_RTDB_URL)</string>
+	<key>APP_SHARE_WITH_FRIENDS_URL</key>
+	<string>$(APP_SHARE_WITH_FRIENDS_URL)</string>
+	<key>APP_STORAGE_URL</key>
+	<string>$(APP_STORAGE_URL)</string>
+	<key>APP_SUPPORT_EMAIL</key>
+	<string>$(APP_SUPPORT_EMAIL)</string>
+	<key>APP_TERMS_OF_SERVICE_URL</key>
+	<string>$(APP_TERMS_OF_SERVICE_URL)</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.example.placeholder</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>Google Sign In</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(APP_CF_BUNDLE_URL_SCHEMES)</string>
+			</array>
+		</dict>
+	</array>
+	<key>GIDClientID</key>
+	<string>$(APP_GID_CLIENT_ID)</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
+</dict>
+</plist>

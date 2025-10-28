@@ -1,0 +1,361 @@
+/*
+  Localizable.strings
+  visibl
+ 
+  Copyright (c) 2025 Visibl Holdings Limited
+*/
+
+// MARK: - Tabbar
+
+"library_tab" = "My Library";
+"store_tab" = "Book Store";
+"settings_tab" = "Settings";
+
+// Each Screen Title
+
+"library_screen_title" = "Library";
+"store_screen_title" = "Store";
+"settings_screen_title" = "Settings";
+
+// MARK: - My Library Screen
+
+// Alerts
+
+"my_books_delete_confirm_title" = "Are you sure?";
+"my_books_delete_confirm_message" = "Are you sure you want to delete audiobook \"%@\"?";
+"my_books_delete_confirm_btn" = "Delete";
+"my_books_cancel_btn" = "Cancel";
+
+"my_books_downloading_title" = "Download in Progress";
+"my_books_downloading_message" = "Audiobook \"%@\" is downloading, please try again later.";
+"my_books_ok_btn" = "OK";
+
+"my_books_invalid_voucher_title" = "Invalid Voucher";
+"my_books_invalid_voucher_message" = "The voucher you entered is not valid. Please check and try again.";
+
+"my_books_graph_processing_title" = "Graph Processing";
+"my_books_graph_processing_message" = "The graph for %@ is being processed. Please wait until the processing is complete.";
+
+"my_books_transcribing_title" = "Audiobook is being transcribed";
+"my_books_transcribing_message" = "Please wait until the transcription is complete for this audiobook. Once complete, you will be able to play it back.";
+
+"my_books_now_playing_title" = "Audiobook is Playing";
+"my_books_now_playing_message" = "You need to close the player before using this option for \"%@\".";
+"my_books_ok_btn" = "OK";
+"my_books_mark_finished" = "Mark as Finished";
+"my_books_reset_progress" = "Reset Progress";
+
+"my_books_speech_recognition_title" = "Speech Recognition is Required";
+"my_books_speech_recognition_message" = "Please enable speech recognition in your device settings to transcribe audiobooks and continue.";
+"my_books_settings_btn" = "Settings";
+
+// Cell Menu
+
+"my_books_restart_download" = "Restart Download";
+"my_books_favorite_add" = "Add to Favorites";
+"my_books_favorite_remove" = "Remove from Favorites";
+"my_books_mark_finished" = "Mark as Finished";
+"my_books_archive_move" = "Move to Archive";
+"my_books_archive_remove" = "Remove from Archive";
+"my_books_reset_progress" = "Reset Progress";
+"my_books_show_in_catalogue" = "Show in Catalogue";
+"my_books_delete" = "Delete";
+
+// Layout Options
+
+"my_books_layout_grid" = "Grid";
+"my_books_layout_list" = "List";
+
+// Sorting Options
+
+"my_books_sort_by_title" = "Sort by";
+
+"my_books_sorting_date" = "Date";
+"my_books_sorting_title" = "Title";
+"my_books_sorting_author" = "Author";
+
+// Filter Options
+
+"my_books_filter_all" = "All";
+"my_books_filter_favorite" = "Favorite";
+"my_books_filter_listening_now" = "Listening Now";
+"my_books_filter_finished" = "Finished";
+"my_books_filter_archived" = "Archived";
+
+// Placeholders
+
+"signed_out_placeholder_title" = "Welcome to Visibl!";
+"signed_out_placeholder_subtitle" = "Please sign in to your account start adding books to your library";
+"signed_out_placeholder_btn" = "Sign in to your account";
+
+"empty_library_placeholder_title" = "Begin Your Journey!";
+"empty_library_placeholder_subtitle" = "Your library is empty. Start exploring and add books you'd like to listen to";
+"empty_library_placeholder_btn" = "Explore the Bookstore";
+
+"empty_collection_placeholder_title" = "Collection is Empty";
+"empty_collection_placeholder_subtitle" = "New books will appear here. Start adding books to the collection";
+"empty_collection_placeholder_btn" = "";
+
+"my_books_downloading_title" = "Downloading";
+
+// MARK: - Catalogue Screen
+
+// Publication Details Screen
+
+"released_title" = "Released";
+"duration_title" = "Duration";
+"chapters_title" = "Chapters";
+"book_summary_title" = "Summary";
+"report_a_problem_btn" = "Report a Problem";
+"get_this_book_btn" = "Get This Book";
+"download_book_btn" = "Download Book";
+"already_added_btn" = "Already Added";
+
+"catalogue_aax_placeholder_title" = "Synchronizing";
+"catalogue_aax_placeholder_subtitle" = "Please wait while your library is being synchronized. You'll be notified when it's complete.";
+"catalogue_aax_connect_title" = "Import Books";
+"catalogue_aax_connect_subtitle" = "Connect your external library to import books and start using them with Visibl.";
+"catalogue_aax_connect_btn" = "Connect";
+
+"catalogue_source_type_visibl" = "Visibl";
+"catalogue_source_type_aac" = "Imported";
+
+// Publication Details Screen Alerts
+
+"catalogue_sign_in_required_alert_title" = "Sign In Required";
+"catalogue_sign_in_required_alert_message" = "This action requires sign-in. Would you like to sign in now?";
+"catalogue_sign_in_required_alert_sign_in_btn" = "Sign In";
+"catalogue_sign_in_required_alert_cancel_btn" = "Cancel";
+
+// MARK: - Settings Screen
+
+"settings_title" = "Settings";
+"sign_in_call_to_action" = "Sign into your account";
+"sign_up_call_to_action" = "Sign up with new account";
+"app_appearance" = "Appearance";
+"haptic_touch" = "Haptic Touch";
+"lock_screen_carousel" = "Lock Screen Carousel";
+"rate_app" = "Rate Us";
+"share_with_friends" = "Share with Friends";
+"contact_us" = "Contact Us";
+"app_version_title" = "Version";
+"consent_text" = "By continuing, you confirm that you have read and accepted our [Privacy Policy](%1$@) and [Terms of Use](%2$@)";
+"join_discord_title" = "Community and Support";
+
+// Settings Alerts
+
+"aax_disconnect_alert_title" = "Disconnect %@ Account?";
+"aax_disconnect_alert_message" = "Are you sure you want to disconnect your %@ account? All imported books will be removed from your library";
+"aax_disconnect_alert_confirm_btn" = "Disconnect";
+"aax_disconnect_alert_cancel_btn" = "Cancel";
+
+"battery_drain_alert_title" = "High Battery Usage";
+"battery_drain_alert_message" = "Enabling the home screen carousel may increase battery consumption.";
+"battery_drain_alert_got_it_btn" = "Got it!";
+
+"sign_in_required_alert_title" = "Sign In Required";
+"sign_in_required_alert_message" = "Before importing your books, please sign in into your Visibl account.";
+"sign_in_required_alert_sign_in_btn" = "Sign In";
+"sign_in_required_alert_cancel_btn" = "Cancel";
+
+// Account
+"account_title" = "My Account";
+"privacy_policy" = "Privacy Policy";
+"terms_of_use" = "Term of Use";
+"sign_out_button" = "Sign Out";
+"delete_account_button" = "Delete Account";
+"anonymous_user" = "Anonymous User";
+
+"sign_out_alert_title" = "Are you sure";
+"sign_out_alert_message" = "Are you sure you want to sign out?";
+
+"delete_account_alert_title" = "Delete Account";
+"delete_account_alert_message" = "Are you sure you want to delete your account? This action cannot be undone.";
+"delete_account_alert_btn" = "Delete";
+
+// Auth Main View
+
+"enter_your_email_title" = "Enter your email";
+"auth_main_view_title" = "Welcome to Visibl";
+"auth_main_view_subtitle" = "Transform your favorite audiobooks into visual journeys with the power of AI";
+"continue_with_apple_btn" = "Continue with Apple";
+"continue_with_google_btn" = "Continue with Google";
+
+// Sign in
+
+"enter_password_title" = "Enter Password";
+"enter_password_prefix" = "Enter password for ";
+"forgot_password_title" = "Forgot password?";
+"login_title" = "Log in";
+
+// Sign up
+
+"sign_up_title" = "Sign Up";
+"sign_up_prefix" = "Creating new profile for ";
+"create_account_btn" = "Create account";
+"or_title" = "or";
+
+// Placeholders
+
+"email_placeholder" = "email";
+"password_placeholder" = "password";
+"confirm_password_placeholder" = "confirm password";
+
+// Password Reset
+
+"reset_password_success_title" = "Successful";
+"reset_password_success_subtitle" = "Please check your email and\nfollow the instructions";
+"reset_password_title" = "Reset your password";
+"reset_password_subtitle" = "Enter your email address and we'll send you a link to reset your password.";
+"reset_password_button" = "Reset Password";
+
+// Auth Toast Messages
+
+"toast_successfully_signed_in_with_email" = "Successfully signed in with email";
+"toast_successfully_signed_up_with_email" = "Account created successfully";
+"toast_successfully_signed_in_with_google" = "Successfully signed in with Google";
+"toast_successfully_signed_in_with_apple" = "Successfully signed in with Apple";
+
+// AAX
+
+"aax_profile_connect" = "Connect %@";
+"aax_profile_sign_in" = "Connect";
+"aax_profile_connected" = "Connected";
+"aax_profile_loading" = "Loading";
+"aax_profile_no_user_name_available" = "Unknown";
+"aax_profile_trademark_notice" = "%@™ and the %@ logo are trademarks of Amazon.com, Inc or its affiliates and are in no way affiliated with Visibl.";
+"aax_connect_acc_title" = "Connect Your Account";
+"download_aaxtitle_btn" = "Download This Book";
+
+"aax_not_downloaded_toast_warning" = "You need to download audiobook %@ first to play it.";
+"aax_voucher_not_valid_toast_error" = "Voucher is not valid for book %@";
+
+// AAX Consent
+
+"aax_consent_screen_title" = "Play your %@ content in Visibl";
+"aax_consent_description" = "Visibl allows you to listen to content you have purchased from third parties via fair-use open-source libraries";
+"aax_consent_point_1" = "I understand that Visibl is not affiliated with %@, or %@.";
+"aax_consent_point_2" = "I consent to storing my DRM protected content on this device for personal use";
+"aax_consent_point_3" = "I consent to transcribing my audio content for personal accessibility purposes.";
+"aax_consent_decline" = "Decline";
+"aax_consent_accept" = "Accept";
+"aax_consent_disclaimer" = "%@™ and the %@ logo are trademarks of %@.com, Inc or its affiliates and are in no way affiliated with Visibl.";
+"aax_consent_learn_more" = "learn more";
+
+// MARK: - Common
+
+// Labels
+"loding_title" = "Loading...";
+
+// Navbar
+"done_button" = "Done";
+"back_button" = "Back";
+"close_button" = "Close";
+
+// Appearance Options
+"select_appearance_title" = "Select Appearance";
+
+"light" = "Light";
+"dark" = "Dark";
+"system" = "System";
+
+// Network Connectivity Alert
+"connectivity_alert_title" = "Network Error";
+"connectivity_alert_desc" = "Your internet connection appears to be offline.";
+"connectivity_alert_confirm_button" = "Settings";
+"connectivity_alert_cancel_button" = "Cancel";
+
+// Buttons
+"ok_button" = "OK";
+"cancel_button" = "Cancel";
+"confirm_button" = "Confirm";
+"add_button" = "Add";
+"edit_button" = "Edit";
+"remove_button" = "Remove";
+"filter_button" = "Filter";
+"downloads_completed_notification_title" = "All books downloaded. You can start listening";
+"continue_btn" = "Continue";
+
+// Auth Errors
+
+"auth_error_password_mismatch" = "Passwords do not match";
+"auth_error_delete_user_failed" = "No user is currently signed in";
+"auth_error_please_provide_correct_email" = "Please provide a correct email address.";
+
+"auth_error_invalid_email" = "That email address isn’t formatted correctly.";
+"auth_error_wrong_password" = "Sorry, that password didn’t match.";
+"auth_error_user_not_found" = "No account exists for that email.";
+"auth_error_expired_action_code" = "This link has expired. Please request a new one.";
+"auth_error_invalid_credential" = "The password is wrong. Please try again.";
+"auth_error_account_exists_with_different_credential" = "An account already exists with that email using a different sign-in method.";
+"auth_error_email_already_in_use" = "That email is already in use. Please log in instead.";
+"auth_error_weak_password" = "The password is too weak. Please choose a stronger one.";
+"auth_error_operation_not_allowed" = "This sign-in method is not enabled. Please contact support.";
+"auth_error_too_many_requests" = "Too many attempts. Please wait a bit and try again.";
+
+// Player Erros
+
+"audio_loading_error" = "Error loading audio, try again or report this issue.";
+
+// Scene List
+
+"scene_list_prompt_details_title" = "Scene Prompt";
+"scene_list_location_details_title" = "Location";
+"scene_list_character_details_title" = "Characters";
+"scene_list_scene_details_no_scene_selected_title" = "No Scene Selected";
+
+// Book Info
+
+"book_info_no_styles_title" = "No styles available";
+"processing_with_ai" = "Processing with AI";
+
+// Connectivity
+
+"no_internet_placeholder_title" = "No Internet Connection";
+
+// Sign in with Apple errors
+
+"apple_sign_in_error_unknown" = "Sign in with Apple is not available right now.";
+"apple_sign_in_error_canceled" = "You cancelled Sign in with Apple.";
+"apple_sign_in_error_failed" = "Sign in with Apple failed. Please try again.";
+"apple_sign_in_error_invalid_response" = "Received an invalid response from Apple.";
+"apple_sign_in_error_not_handled" = "Sign in with Apple request was not handled.";
+"apple_sign_in_error_not_interactive" = "Sign in with Apple cannot be presented right now.";
+"apple_sign_in_error_credential_export" = "Failed to export your Apple credential.";
+"apple_sign_in_error_credential_import" = "Failed to import your Apple credential.";
+"apple_sign_in_error_excluded_credential" = "The credential you're trying to use has been excluded from this request.";
+"apple_sign_in_error_unknown_user" = "Apple returned an unknown user.";
+
+// Select Appearence
+
+// AAX Accessibility Screen
+
+"aax_accessibility_navbar_title" = "Import from %@";
+"aax_accessibility_title" = "%@ Library";
+"aax_accessibility_description" = "You will be directed to the %@ Website.\nLog in into your %@ account.";
+"aax_accessibility_call_to_action" = "I'm using Visibl for accessibility.";
+
+// AAX Country Picker
+
+"aax_country_picker_navbar_title" = "Select Country";
+
+// AAX Errors
+
+"aax_errors_authenticationFailed" = "Authentication failed: something went wrong, try again or contact support";
+"aax_errors_clientNotInitialized" = "Error connecting, client is not initialized";
+"aax_errors_accountIsLinkedToAnotherUser" = "Error connecting: this account is already linked to another user.";
+
+// Force Update
+
+"force_update_modal_title" = "Update Required";
+"force_update_modal_message" = "A new version of the app is available. Please update to continue using the app.";
+"force_update_modal_button_title" = "Update Now";
+
+// Video Share
+
+"video_share_loader_title" = "Creating Video";
+"video_share_loader_message" = "Please keep Visibl open while you wait";
+
+"chapter_processing_message" = "Chapter is processing. Please wait a moment...";
+
+"stay_in_app_info_message" = "Keep Visibl open while downloading books";

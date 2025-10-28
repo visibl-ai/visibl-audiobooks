@@ -1,0 +1,45 @@
+{
+  "configurations" : [
+    {
+      "id" : "6ADEF4D7-54DB-4E78-858E-EF9141B8DF15",
+      "name" : "Test Scheme Action",
+      "options" : {
+        "commandLineArgumentEntries" : [
+          {
+            "argument" : "--uitesting"
+          }
+        ]
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "commandLineArgumentEntries" : [
+      {
+        "argument" : "--uitesting"
+      }
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:visibl.xcodeproj",
+      "identifier" : "74F98D2C2D0673D2002D1793",
+      "name" : "visibl"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:visibl.xcodeproj",
+        "identifier" : "74D34EB42DB132B40073E3C0",
+        "name" : "visiblUITests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:visibl.xcodeproj",
+        "identifier" : "74A1A06A2D90BCA400C12536",
+        "name" : "visiblTests"
+      }
+    }
+  ],
+  "version" : 1
+}

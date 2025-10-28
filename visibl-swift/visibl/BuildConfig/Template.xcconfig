@@ -1,0 +1,38 @@
+//
+//  Template.xcconfig
+//  visibl
+//
+//  Copyright (c) 2025 Visibl Holdings Limited
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+APP_NAME = visibl
+PRODUCT_BUNDLE_IDENTIFIER = replace.me
+
+DEVELOPMENT_TEAM = replace.me
+CODE_SIGN_IDENTITY = replace.me
+PROVISIONING_PROFILE_SPECIFIER = replace.me
+
+// Firebase Service
+APP_GID_CLIENT_ID = replace.me
+APP_CLOUD_FUNC_REGION = replace.me
+
+// Google Sign in
+APP_CF_BUNDLE_URL_SCHEMES = replace.me
+
+// Real Time Database
+APP_RTDB_URL = replace.me // without https://
+
+// URLs which used in settings and account add them without https://
+APP_PRIVATE_POLICY_URL = replace.me
+APP_TERMS_OF_SERVICE_URL = replace.me
+APP_RATE_US_URL = replace.me
+APP_SHARE_WITH_FRIENDS_URL = replace.me
+APP_SUPPORT_EMAIL = support@replace.me
+APP_DISCORD_SERVER_URL = discord.com/invite/replace_me
+
+// PostHog
+POSTHOG_API_KEY = your_api_key_here
+POSTHOG_HOST = eu.i.posthog.com // without https://
