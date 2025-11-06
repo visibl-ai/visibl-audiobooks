@@ -1,0 +1,48 @@
+# .serverignore - Files to exclude when syncing server code from private repo
+#
+# Format: One path per line (exact paths only, relative to repo root)
+# Lines starting with # are comments and will be ignored
+# Empty lines are ignored
+#
+# Examples:
+#   config/secrets.yml           # Exclude specific file
+#   .env.production              # Exclude environment file
+#   internal/credentials/        # Exclude entire directory
+#   data/models/proprietary.pkl  # Exclude proprietary model file
+#
+# Common exclusions (add your specific paths below):
+# - API keys and secrets
+# - Database credentials
+# - Private model weights
+# - Internal configuration files
+# - Customer data or PII
+# - Proprietary algorithms
+
+# Add your exclusions below this line:
+.husky/
+admin/
+signatures/
+storage-proxy/
+package.json
+package-lock.json
+CLA.md
+Developing.md
+LICENSE
+NOTICE
+README.md
+admin.sh
+database.rules.json
+firebase.json
+firestore.indexes.json
+ngrok.yaml
+startup.sh
+storage.rules
+test.sh
+functions/test/
+functions/ai/openai/prompts.js
+functions/ai/prompts/
+functions/graph/v0.1/graphV0_1Prompts.js
+functions/graph/v0.1/task
+functions/graph/README.md
+functions/lint
+functions/scripts/
