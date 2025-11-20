@@ -22,7 +22,7 @@ public struct PlayerConfiguration {
         playbackSpeed: Double = 1.0,
         seekInterval: TimeInterval = 15.0,
         updateInterval: TimeInterval = 1.0,
-        highFrequencyUpdateInterval: TimeInterval = 0.05,
+        highFrequencyUpdateInterval: TimeInterval = 0.1,
         preferredBufferDuration: TimeInterval = 45.0,
         enableBackgroundBuffering: Bool = true,
         minimizeStalling: Bool = true

@@ -97,6 +97,7 @@
 "empty_collection_placeholder_btn" = "";
 
 "my_books_downloading_title" = "Downloading";
+"my_books_pending_title" = "Pending";
 
 // MARK: - Catalogue Screen
 
@@ -357,5 +358,12 @@
 "video_share_loader_message" = "Please keep Visibl open while you wait";
 
 "chapter_processing_message" = "Chapter is processing. Please wait a moment...";
+"chapter_is_not_ready_message" = "This chapter is not ready yet";
+"player_chapter_in_not_ready_message" = "The next chapter is still processing, please wait";
 
 "stay_in_app_info_message" = "Keep Visibl open while downloading books";
+
+// Catalogue Refresh
+"catalogue_refresh_books_added" = "Updated successfully! %d book(s) added";
+"catalogue_refresh_books_removed" = "Updated successfully! %d book(s) removed";
+"catalogue_refresh_no_changes" = "Updated successfully! No changes in your library";

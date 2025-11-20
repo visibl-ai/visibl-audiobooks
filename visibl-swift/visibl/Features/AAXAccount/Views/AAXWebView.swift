@@ -7,6 +7,7 @@
 
 import SwiftUI
 import WebKit
+import Mixpanel
 
 struct AAXWebView: UIViewRepresentable {
     @Binding var currentURL: URL?
@@ -124,6 +125,7 @@ struct AAXWebViewContainer: View {
                             try await viewModel.completeAuth(redirectURL: url.absoluteString)
                             viewModel.onSuccess?()
                             dismiss()
+                            Mixpanel.mainInstance().track(event: "aax_library_connected")
                         } catch {
                             print("Error completing auth: \(error)")
                             dismiss()

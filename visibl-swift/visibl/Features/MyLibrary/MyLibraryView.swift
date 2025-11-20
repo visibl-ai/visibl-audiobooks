@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Mixpanel
 
 struct MyLibraryView: View {
     private let coordinator: Coordinator
@@ -270,6 +271,12 @@ extension MyLibraryView {
         if viewModel.isDownloading(audiobook) {
             audiobookIsDownloadingAlert(audiobook)
         } else {
+            if audiobook.isAAX {
+                Mixpanel.mainInstance().track(event: "aax_book_played")
+            } else {
+                Mixpanel.mainInstance().track(event: "public_book_played")
+            }
+            
             coordinator.presentFullScreenCover(.player(coordinator, audiobook))
         }
     }

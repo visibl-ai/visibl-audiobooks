@@ -10,10 +10,16 @@ import SDDownloadManager
 
 final class SDDownloadManagerWrapper: ObservableObject {
     static let shared = SDDownloadManagerWrapper()
-    
+
     @Published var tasks: [DownloadTaskModel] = []
     private let storageManager = StorageManager.shared
-    
+
+    private init() {
+        // Disable notifications immediately on initialization
+        SDDownloadManager.shared.showLocalNotificationOnBackgroundDownloadDone = false
+        SDDownloadManager.shared.localNotificationText = nil
+    }
+
     // MARK: - Helper Methods for Array Operations
     
     private func findTask(by audiobookId: String) -> DownloadTaskModel? {

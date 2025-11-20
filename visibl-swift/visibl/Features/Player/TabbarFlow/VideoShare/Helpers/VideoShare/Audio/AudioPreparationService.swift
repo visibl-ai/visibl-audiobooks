@@ -106,8 +106,8 @@ final class AudioPreparationService {
         // For M4B books, extract precise segment
         if let m4bUrlString = m4bUrl,
            let chapterStart = chapterStartTime {
-            let absoluteStartTime = chapterStart + sceneStartTime
-            let absoluteEndTime = chapterStart + sceneEndTime
+            let absoluteStartTime = sceneStartTime
+            let absoluteEndTime = sceneEndTime
 
             print("Extracting M4B segment from \(absoluteStartTime) to \(absoluteEndTime) (scene range: \(sceneStartTime)-\(sceneEndTime) in chapter starting at \(chapterStart))")
 

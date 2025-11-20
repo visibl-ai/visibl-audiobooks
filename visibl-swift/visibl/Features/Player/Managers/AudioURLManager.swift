@@ -13,7 +13,7 @@ enum AudioURLError: LocalizedError {
     case invalidEncryptionData
     case conversionFailed(Error)
     case noValidURL
-    
+
     var errorDescription: String? {
         switch self {
         case .aaxFileNotFound: return "AAX file not found"
@@ -24,27 +24,35 @@ enum AudioURLError: LocalizedError {
     }
 }
 
+struct AudioURLResult {
+    let primaryURL: URL
+    let backupURL: URL?
+}
+
 final class AudioURLManager {
-    
-    func getURL(for audiobook: AudiobookModel) async -> Result<URL, AudioURLError> {
-        // Non-AAX audiobook - return direct URL
+
+    func getURL(for audiobook: AudiobookModel) async -> Result<AudioURLResult, AudioURLError> {
+        // Non-AAX audiobook - return direct URL with backup
         guard audiobook.isAAX else {
-            guard let url = audiobook.userLibraryItem.content?.m4b?.url else {
+            guard let primaryURL = audiobook.userLibraryItem.content?.m4b?.url else {
                 return .failure(.noValidURL)
             }
-            return .success(url)
+            let backupURL = audiobook.userLibraryItem.content?.m4b?.backupURL
+            let result = AudioURLResult(primaryURL: primaryURL, backupURL: backupURL)
+            return .success(result)
         }
-        
+
         // AAX audiobook - check if already converted
         if audiobook.isAAXFileConverted {
-            return .success(audiobook.convertedAAXFileURL)
+            let result = AudioURLResult(primaryURL: audiobook.convertedAAXFileURL, backupURL: nil)
+            return .success(result)
         }
-        
+
         // Need to convert
         return await convertAAX(audiobook)
     }
-    
-    private func convertAAX(_ audiobook: AudiobookModel) async -> Result<URL, AudioURLError> {
+
+    private func convertAAX(_ audiobook: AudiobookModel) async -> Result<AudioURLResult, AudioURLError> {
         guard audiobook.isAAXFileDownloaded else {
             return .failure(.aaxFileNotFound)
         }
@@ -78,8 +86,9 @@ final class AudioURLManager {
             }
             
             try player?.convertToM4A(outputPath: audiobook.convertedAAXFilePath)
-            
-            return .success(audiobook.convertedAAXFileURL)
+
+            let result = AudioURLResult(primaryURL: audiobook.convertedAAXFileURL, backupURL: nil)
+            return .success(result)
         } catch {
             return .failure(.conversionFailed(error))
         }

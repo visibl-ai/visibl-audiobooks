@@ -1,5 +1,5 @@
 {
-  "originHash" : "f2f46b0bafed44d6a61e81f049185df572cc05dafc2bca2de217906370978032",
+  "originHash" : "45be17ea2dfe6f9f1eab9c89535d4d3c77a41dbd352cf3e67dbe4ad230c12f16",
   "pins" : [
     {
       "identity" : "aaxconnectswift",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mkb69/AAXCPlayer",
       "state" : {
-        "branch" : "main",
-        "revision" : "99361b83c6aa025bc11f05d29e914a514905c957"
+        "branch" : "fix/cpu-max",
+        "revision" : "ac5a6f9b00ec05a3ed289fb294896ae1e0100788"
       }
     },
     {
@@ -141,8 +141,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/onevcat/Kingfisher",
       "state" : {
-        "revision" : "2015fda791daa72c8058619545a593bf8c1dd59f",
-        "version" : "8.5.0"
+        "revision" : "4d75de347da985a70c63af4d799ed482021f6733",
+        "version" : "8.6.1"
       }
     },
     {
@@ -152,6 +152,15 @@
       "state" : {
         "revision" : "a0bc79961d7be727d258d33d5a6b2f1023270ba1",
         "version" : "1.22.5"
+      }
+    },
+    {
+      "identity" : "mixpanel-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mixpanel/mixpanel-swift",
+      "state" : {
+        "branch" : "master",
+        "revision" : "4088e46b2d76a70e227f790f5b683f8ff52951d0"
       }
     },
     {
@@ -168,8 +177,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/PostHog/posthog-ios.git",
       "state" : {
-        "revision" : "f381818bc153f63fbe13d6822e65cc7233ba4647",
-        "version" : "3.31.0"
+        "revision" : "b71b7b1ba861391377d01251479530b938881ce0",
+        "version" : "3.35.0"
       }
     },
     {
@@ -204,8 +213,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-protobuf.git",
       "state" : {
-        "revision" : "e3f69fd321d0c9fcdc16fb576a0cdd956675face",
-        "version" : "1.31.0"
+        "revision" : "c169a5744230951031770e27e475ff6eefe51f9d",
+        "version" : "1.33.3"
       }
     },
     {

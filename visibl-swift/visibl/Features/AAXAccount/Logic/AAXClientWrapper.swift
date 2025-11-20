@@ -144,13 +144,32 @@ final class AAXClientWrapper: ObservableObject {
     
     // MARK: - Submit Library to Server
     
-    private func refreshLibrary() async throws {
-        guard let client = currentClient else { throw AAXAuthError.clientNotInitialized }
+    func refreshLibrary(forceNewClient: Bool = false) async throws {
+        // Optionally recreate the client to force fresh data from AAX
+        if forceNewClient {
+            guard let aaxAuthData = aaxAuthData else {
+                throw AAXAuthError.clientNotInitialized
+            }
+
+            do {
+                let authDataAsData = try JSONEncoder().encode(aaxAuthData)
+                let newClient = try AAXConnectClient(fromSavedAuthJSON: authDataAsData)
+
+                await MainActor.run {
+                    self.currentClient = newClient
+                }
+            } catch {
+                throw error
+            }
+        }
+
+        guard let client = currentClient else {
+            throw AAXAuthError.clientNotInitialized
+        }
+
         let library = try await client.loadLibrary()
         let libraryData = try client.exportLibraryToJSON(library: library)
         let jsonObject = try JSONSerialization.jsonObject(with: libraryData, options: [])
-        // print("submitted library")
-        // print(jsonObject)
         try await AAXService.submitLibrary(libraryData: jsonObject)
     }
     

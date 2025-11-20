@@ -9,6 +9,7 @@ import Foundation
 import FirebaseAuth
 import Combine
 import SwiftUI
+import Mixpanel
 
 final class PublicationDetailsViewModel: ObservableObject {
     private let publication: PublicationModel
@@ -49,6 +50,12 @@ final class PublicationDetailsViewModel: ObservableObject {
             try await UserLibraryService.addAudiobookToUserLibrary(sku: publication.id)
             try await Task.sleep(for: .seconds(1))
             isLoading = false
+            switch publication.visibility {
+            case .public:
+                Mixpanel.mainInstance().track(event: "public_book_added")
+            case .private:
+                Mixpanel.mainInstance().track(event: "aax_book_added")
+            }
         } catch {
             isLoading = false
             print(error.localizedDescription)

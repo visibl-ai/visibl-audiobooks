@@ -58,3 +58,27 @@ final class CatalogueViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 }
+
+extension CatalogueViewModel {
+    @MainActor func refreshAAXFeed() async {
+        let countBefore = privatePublications.count
+
+        do {
+            try await aaxClient.refreshLibrary()
+
+            let countAfter = privatePublications.count
+            let difference = countAfter - countBefore
+
+            if difference > 0 {
+                Toastify.show(style: .success, message: "catalogue_refresh_books_added".localizedFormat(difference))
+            } else if difference < 0 {
+                Toastify.show(style: .success, message: "catalogue_refresh_books_removed".localizedFormat(abs(difference)))
+            } else {
+                Toastify.show(style: .success, message: "catalogue_refresh_no_changes".localized)
+            }
+        } catch {
+            Toastify.show(style: .error, message: "Failed to refresh private feed")
+            print("Failed to refresh public feed: \(error)")
+        }
+    }
+}

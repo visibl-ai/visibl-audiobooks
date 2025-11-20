@@ -41,6 +41,14 @@ public final class PlayerWrapper: NSObject, PlayerProtocol {
     // Track if initial seek has completed to prevent emitting 0.0 during setup
     private var hasCompletedInitialSeek = false
 
+    // Cache for preventing redundant updates
+    private var lastEmittedTime: TimeInterval = -1
+    private var lastEmittedHighFreqTime: TimeInterval = -1
+    private let timeUpdateThreshold: TimeInterval = 0.01 // Only emit if changed by 10ms+
+
+    // Background queue for time observer callbacks
+    private let timeObserverQueue = DispatchQueue(label: "com.visibl.timeObserver", qos: .userInteractive)
+
     // Subjects
     private let isPlayingSubject = CurrentValueSubject<Bool, Never>(false)
     private let currentTimeSubject = PassthroughSubject<TimeInterval, Never>()
@@ -267,12 +275,12 @@ public final class PlayerWrapper: NSObject, PlayerProtocol {
             player.removeTimeObserver(token)
             timeObserverToken = nil
         }
-        
+
         if let token = highFreqTimeObserverToken, let player = player {
             player.removeTimeObserver(token)
             highFreqTimeObserverToken = nil
         }
-        
+
         // Remove custom time observers
         if let player = player {
             for observer in customTimeObservers {
@@ -281,7 +289,7 @@ public final class PlayerWrapper: NSObject, PlayerProtocol {
             }
         }
         customTimeObservers.removeAll()
-        
+
         // Invalidate KVO observers
         statusObserver?.invalidate()
         statusObserver = nil
@@ -297,17 +305,21 @@ public final class PlayerWrapper: NSObject, PlayerProtocol {
         bufferFullObserver = nil
         loadedTimeRangesObserver?.invalidate()
         loadedTimeRangesObserver = nil
-        
+
         // Cancel subscriptions
         cancellables.removeAll()
-        
+
         // Reset state to idle
         stateSubject.send(.idle)
-        
+
         // Reset playback configuration
         shouldPlayWhenReady = false
         initialSeekPosition = nil
-        
+
+        // Reset cached time values
+        lastEmittedTime = -1
+        lastEmittedHighFreqTime = -1
+
         // Clean up player
         player = nil
         playerItem = nil
@@ -409,21 +421,22 @@ public final class PlayerWrapper: NSObject, PlayerProtocol {
     
     private func setupTimeObservers() {
         guard let player = player else { return }
-        
-        // Standard time observer
+
+        // Standard time observer - moved to background queue
         let interval = CMTime(seconds: configuration.updateInterval, preferredTimescale: 600)
+        
         timeObserverToken = player.addPeriodicTimeObserver(
             forInterval: interval,
-            queue: .main
+            queue: DispatchQueue(label: "com.visibl.timeObserver.standard", qos: .userInteractive)
         ) { [weak self] time in
             self?.handleTimeUpdate(time, isHighFrequency: false)
         }
-        
-        // High frequency time observer
+
+        // High frequency time observer - moved to background queue
         let highFreqInterval = CMTime(seconds: configuration.highFrequencyUpdateInterval, preferredTimescale: 600)
         highFreqTimeObserverToken = player.addPeriodicTimeObserver(
             forInterval: highFreqInterval,
-            queue: .main
+            queue: DispatchQueue(label: "com.visibl.timeObserver.highFreq", qos: .userInteractive)
         ) { [weak self] time in
             self?.handleTimeUpdate(time, isHighFrequency: true)
         }
@@ -513,16 +526,26 @@ public final class PlayerWrapper: NSObject, PlayerProtocol {
         // Convert to relative time
         let relativeTime = max(0, absoluteTime - startTime)
 
-        // Publish time update
+        // Skip redundant updates - only emit if time changed meaningfully
         if isHighFrequency {
-            highFrequencyTimeSubject.send(relativeTime)
+            guard abs(relativeTime - lastEmittedHighFreqTime) >= timeUpdateThreshold else { return }
+            lastEmittedHighFreqTime = relativeTime
+            DispatchQueue.main.async { [weak self] in
+                self?.highFrequencyTimeSubject.send(relativeTime)
+            }
         } else {
-            currentTimeSubject.send(relativeTime)
+            guard abs(relativeTime - lastEmittedTime) >= timeUpdateThreshold else { return }
+            lastEmittedTime = relativeTime
+            DispatchQueue.main.async { [weak self] in
+                self?.currentTimeSubject.send(relativeTime)
+            }
         }
 
-        // Check if we've reached the end
-        if let endTime = endTime, absoluteTime >= endTime {
-            handleReachedEnd()
+        // Check if we've reached the end (only on standard observer to avoid duplicate calls)
+        if !isHighFrequency, let endTime = endTime, absoluteTime >= endTime {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleReachedEnd()
+            }
         }
     }
     

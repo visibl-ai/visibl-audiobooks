@@ -113,6 +113,12 @@ struct AAXInfoModel: Codable, Equatable {
 
 struct M4BInfoModel: Codable, Equatable {
     let url: URL
+    let backupURL: URL?
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case backupURL = "urlGcp"
+    }
 }
 
 extension UserLibraryItemModel {

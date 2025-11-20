@@ -12,6 +12,7 @@ import FirebaseMessaging
 import UserNotificationsUI
 import FirebaseAuth
 import SDDownloadManager
+import Mixpanel
 
 class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNotificationCenterDelegate {
     private let analytics = AnalyticsManager.shared
@@ -20,6 +21,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNot
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
     ) -> Bool {
+        Mixpanel.initialize(token: Constants.mixpanelToken, trackAutomaticEvents: true)
+        Mixpanel.mainInstance().serverURL = Constants.mixpanelServerURL
         #if DEBUG
         let providerFactory = AppCheckDebugProviderFactory()
         AppCheck.setAppCheckProviderFactory(providerFactory)

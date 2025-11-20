@@ -54,6 +54,9 @@ final class CatalogueObserver: ObservableObject {
         DispatchQueue.main.async {
             if let index = self.publications.firstIndex(where: { $0.id == item.id }) {
                 self.publications[index] = item
+
+                // Notify about graph progress update
+                NotificationCenter.default.post(name: .graphProgressDidUpdate, object: item)
             }
         }
     }

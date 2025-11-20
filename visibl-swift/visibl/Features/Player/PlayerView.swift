@@ -148,7 +148,15 @@ struct PlayerView: View {
             
             currentTabBarItemSelected
             
-            SceneProgressBar(progress: sceneStylesViewModel.currentSceneProgress)
+            SceneProgressBar(
+                sceneStartTime: sceneStylesViewModel.currentSceneStartTime,
+                sceneDuration: sceneStylesViewModel.currentSceneDuration,
+                sceneIdentifier: sceneStylesViewModel.currentSceneIdentifier,
+                sceneIndex: sceneStylesViewModel.currentSceneIndex,
+                currentTime: playerViewModel.currentTime ?? sceneStylesViewModel.currentTimeLowRes,
+                playbackSpeed: playerViewModel.playbackSpeed,
+                isPlaying: playerViewModel.isPlaying
+            )
             
             PlayerTabBar(
                 coordinator: coordinator,

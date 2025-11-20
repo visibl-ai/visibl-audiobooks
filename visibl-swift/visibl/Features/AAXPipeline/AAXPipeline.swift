@@ -11,15 +11,19 @@ import AAXCPlayer
 
 @MainActor final class AAXPipeline: ObservableObject {
     @Published var tasks: [AAXProcessingTaskModel] = []
-    
+    @Published var pendingAudiobookIds: [String] = []
+
     private var aaxClient: AAXClientWrapper
     private var authService: AuthServiceProtocol
     private var downloadManager: SDDownloadManagerWrapper
     private var transcriptionManager: TranscriptionManager
     private var uploadManager: UploadManager
-    
+
     private var cancellables = Set<AnyCancellable>()
     private var progressTimers: [String: Timer] = [:]
+
+    var onDownloadStateChanged: ((Bool) -> Void)?
+    var getAudiobook: ((String) -> AudiobookModel?)?
     
     init(aaxClient: AAXClientWrapper, authService: AuthServiceProtocol) {
         self.aaxClient = aaxClient
@@ -42,6 +46,18 @@ import AAXCPlayer
 
         // Check if there's already an active task for this audiobook
         if tasks.contains(where: { $0.audiobookId == audiobookId }) {
+            return
+        }
+
+        // Check if already in pending queue
+        if pendingAudiobookIds.contains(audiobookId) {
+            return
+        }
+
+        // If a task is already running, add to pending queue
+        if !tasks.isEmpty {
+            pendingAudiobookIds.append(audiobookId)
+            objectWillChange.send()
             return
         }
 
@@ -79,6 +95,14 @@ import AAXCPlayer
 
         tasks.remove(at: taskIndex)
         objectWillChange.send()
+
+        // Notify that download was cancelled
+        onDownloadStateChanged?(false)
+
+        // Process next book in queue
+        Task {
+            await processNextPendingBook()
+        }
     }
 
     func cancelProcessingForAudiobook(audiobookId: String) {
@@ -91,6 +115,36 @@ import AAXCPlayer
     // Helper method to find task by audiobook ID
     func findTask(for audiobookId: String) -> AAXProcessingTaskModel? {
         tasks.first(where: { $0.audiobookId == audiobookId })
+    }
+
+    // Process next book in the queue
+    private func processNextPendingBook() async {
+        guard !pendingAudiobookIds.isEmpty else { return }
+        guard tasks.isEmpty else { return }
+
+        let nextAudiobookId = pendingAudiobookIds.removeFirst()
+        objectWillChange.send()
+
+        // Get the audiobook from the callback
+        guard let audiobook = getAudiobook?(nextAudiobookId) else {
+            print("⚠️ Could not find audiobook with ID: \(nextAudiobookId)")
+            // Try next one in queue
+            await processNextPendingBook()
+            return
+        }
+
+        // Create and start new task
+        let task = AAXProcessingTaskModel(
+            id: UUID().uuidString,
+            audiobookId: audiobook.id
+        )
+
+        tasks.append(task)
+        task.startTime = Date()
+        objectWillChange.send()
+
+        // Start the processing pipeline
+        await executeProcessingPipeline(audiobook: audiobook, task: task)
     }
     
     // MARK: - Processing Pipeline
@@ -129,6 +183,9 @@ import AAXCPlayer
 
             // Step 1: Download with retry
             if !audiobook.isDownloaded {
+                // Notify that download is starting
+                onDownloadStateChanged?(true)
+
                 aaxInfo = try await retry {
                     try await self.downloadAAXFile(audiobook: audiobook, task: task)
                 }
@@ -166,15 +223,33 @@ import AAXCPlayer
             // Mark task as completed
             task.setCompleted()
 
+            // Notify that download is completed
+            onDownloadStateChanged?(false)
+
             // Remove task after completion
             if let index = tasks.firstIndex(where: { $0.id == task.id }) {
                 tasks.remove(at: index)
                 objectWillChange.send()
             }
 
+            // Process next book in queue
+            await processNextPendingBook()
+
         } catch {
             _ = task.status.currentStep ?? .download
             print("❌ Processing failed for \(audiobook.title) after all retries: \(error.localizedDescription)")
+
+            // Notify that download failed/stopped
+            onDownloadStateChanged?(false)
+
+            // Remove failed task
+            if let index = tasks.firstIndex(where: { $0.id == task.id }) {
+                tasks.remove(at: index)
+                objectWillChange.send()
+            }
+
+            // Process next book in queue
+            await processNextPendingBook()
         }
     }
     

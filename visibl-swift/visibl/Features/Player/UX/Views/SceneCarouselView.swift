@@ -23,7 +23,7 @@ struct SceneCarouselView: View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack (spacing: 0) {
-                    ForEach(Array(viewModel.publication?.styles ?? [:]).sorted(by: { $0.key < $1.key }), id: \.key) { id, scene in
+                    ForEach(viewModel.sortedStyles, id: \.key) { id, scene in
                         makeSceneImageView(for: id)
                             .frame(maxHeight: .infinity)
                             .containerRelativeFrame(.horizontal, count: 1, spacing: 0)

@@ -78,6 +78,16 @@ final class MyLibraryViewModel: ObservableObject {
         self.aaxPipeline = aaxPipeline
         bind()
         updateAudiobooks()
+
+        // Set up callback for download state changes
+        aaxPipeline.onDownloadStateChanged = { [weak self] isDownloading in
+            self?.isDownloadingAnyBook = isDownloading
+        }
+
+        // Set up callback for getting audiobook by ID
+        aaxPipeline.getAudiobook = { [weak self] audiobookId in
+            self?._audiobooks.first { $0.id == audiobookId }
+        }
     }
 }
 
@@ -122,17 +132,6 @@ extension MyLibraryViewModel {
 //            })
 //            .store(in: &cancellables)
 
-        // Subscribe to AAXPipeline changes to update download state
-        aaxPipeline.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.updateDownloadState()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func updateDownloadState() {
-        isDownloadingAnyBook = audiobooks.contains { isDownloading($0) }
     }
     
     private func updateAudiobooks() {
@@ -162,9 +161,6 @@ extension MyLibraryViewModel {
                 }
             }
         }
-
-        // Update download state after updating audiobooks
-        updateDownloadState()
 
         for audiobook in _audiobooks {
             setCarouselList(audiobook)

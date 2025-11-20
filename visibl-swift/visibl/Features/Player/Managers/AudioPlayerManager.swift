@@ -12,10 +12,7 @@ import MediaPlayer
 final class AudioPlayerManager: ObservableObject {
     @Published var audiobook: AudiobookModel?
     @Published var isPlaying: Bool = false
-
     @Published var currentTime: Double?
-    @Published var currentTimeHighRes: Double?
-
     @Published var duration: Double = 0
     @Published var playerState: PlayerState = .idle
     @Published var playbackSpeed: Double = 1.0
@@ -29,7 +26,12 @@ final class AudioPlayerManager: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
     private var persistentCancellables = Set<AnyCancellable>()
-    
+
+    // Store backup URL for fallback on error
+    private var backupAudioURL: URL?
+    private var primaryAudioURL: URL?
+    private var hasTriedBackupURL: Bool = false
+
     let nowPlayingHandler: NowPlayingHandler
     
     init(
@@ -63,13 +65,23 @@ final class AudioPlayerManager: ObservableObject {
         player.statePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
-                self?.playerState = state
+                guard let self = self else { return }
+                self.playerState = state
 
-                // Handle player errors
+                // Handle player errors with backup URL fallback
                 if case .failed(let error) = state {
-                    DispatchQueue.main.async {
-                        Toastify.show(style: .error, message: "audio_loading_error".localized)
-                        print("Player failed: \(error.localizedDescription)")
+                    // Try backup URL if available and not already tried
+                    if let backupURL = self.backupAudioURL, !self.hasTriedBackupURL {
+                        let failedURL = self.hasTriedBackupURL ? backupURL : self.primaryAudioURL
+                        print("❌ [Player] URL failed: \(failedURL?.absoluteString ?? "unknown")")
+                        print("🔄 [Player] Retrying with backup URL: \(backupURL.absoluteString)")
+                        self.hasTriedBackupURL = true
+                        Task { await self.retryWithBackupURL(backupURL) }
+                    } else {
+                        DispatchQueue.main.async {
+                            Toastify.show(style: .error, message: "audio_loading_error".localized)
+                            print("❌ [Player] Playback failed: \(error.localizedDescription)")
+                        }
                     }
                 }
             }
@@ -82,14 +94,6 @@ final class AudioPlayerManager: ObservableObject {
                 self.currentTime = currentTime
                 self.updateProgress()
                 self.updateNowPlayingInfo()
-            }
-            .store(in: &cancellables)
-        
-        player.highFrequencyTimePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] highFrequencyTimePublisher in
-                guard let self = self else { return }
-                self.currentTimeHighRes = highFrequencyTimePublisher
             }
             .store(in: &cancellables)
         
@@ -116,33 +120,42 @@ final class AudioPlayerManager: ObservableObject {
     func setupPlayer(with audiobook: AudiobookModel) async {
         cancellables.removeAll()
         self.currentTime = nil
-        self.currentTimeHighRes = nil
         self.audiobook = audiobook
-        
+
+        // Reset URL state for new setup
+        self.primaryAudioURL = nil
+        self.backupAudioURL = nil
+        self.hasTriedBackupURL = false
+
         let currentResourceIndex = audiobook.playbackInfo.currentResourceIndex
         let startTime = audiobook.readingOrder[currentResourceIndex].startTime
         let endTime = audiobook.readingOrder[currentResourceIndex].endTime
         let currentPosition = audiobook.playbackInfo.progressInCurrentResource
         let result = await audioURLManager.getURL(for: audiobook)
-        
+
         switch result {
-        case .success(let url):
+        case .success(let urlResult):
+            // Store URLs for potential fallback and error logging
+            self.primaryAudioURL = urlResult.primaryURL
+            self.backupAudioURL = urlResult.backupURL
+
+            // Bind BEFORE setup to catch errors during initial load
+            updateNowPlayingMetadata()
+            bind()
+
             player.setupWithURL(
-                with: url,
+                with: urlResult.primaryURL,
                 startTime: startTime,
                 endTime: endTime,
                 playWhenReady: true,
                 seek: currentPosition
             )
-            
-            updateNowPlayingMetadata()
-            bind()
-            
+
             // Apply stored playback speed
             player.setPlaybackSpeed(playbackSpeed)
         case .failure(let error):
             Toastify.show(style: .error, message: "audio_loading_error".localized)
-            print("Failed to get URL: \(error.localizedDescription)")
+            print("❌ [Player] Failed to get URL: \(error.localizedDescription)")
         }
     }
     
@@ -174,6 +187,27 @@ final class AudioPlayerManager: ObservableObject {
             }
             .store(in: &persistentCancellables)
     }
+
+    @MainActor
+    private func retryWithBackupURL(_ backupURL: URL) async {
+        guard let audiobook = audiobook else { return }
+
+        let currentResourceIndex = audiobook.playbackInfo.currentResourceIndex
+        let startTime = audiobook.readingOrder[currentResourceIndex].startTime
+        let endTime = audiobook.readingOrder[currentResourceIndex].endTime
+        let currentPosition = audiobook.playbackInfo.progressInCurrentResource
+
+        player.setupWithURL(
+            with: backupURL,
+            startTime: startTime,
+            endTime: endTime,
+            playWhenReady: true,
+            seek: currentPosition
+        )
+
+        // Apply stored playback speed
+        player.setPlaybackSpeed(playbackSpeed)
+    }
 }
 
 // MARK: - Playback Controls
@@ -200,8 +234,11 @@ extension AudioPlayerManager {
         audiobook = nil
         artworkImage = nil
         artworkImageSignature = nil
+        primaryAudioURL = nil
+        backupAudioURL = nil
+        hasTriedBackupURL = false
     }
-    
+
     func stopAAX() {
         if let audiobook = audiobook, audiobook.isAAX {
             player.stop()
@@ -209,6 +246,9 @@ extension AudioPlayerManager {
             self.audiobook = nil
             artworkImage = nil
             artworkImageSignature = nil
+            primaryAudioURL = nil
+            backupAudioURL = nil
+            hasTriedBackupURL = false
         }
     }
     

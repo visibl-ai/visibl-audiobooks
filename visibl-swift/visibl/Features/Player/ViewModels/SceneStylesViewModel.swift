@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import FirebaseDatabase
+import SwiftUI
 
 typealias ChaptersArray = [[SceneModel]]
 typealias StylesCollection = [String: StyleModel]
@@ -17,8 +18,7 @@ typealias StylesCollection = [String: StyleModel]
     var audiobook: AudiobookModel
     var chapters: ChaptersArray = []
     var currentStyleId: String?
-    var currentTimeHighRes: Double?
-    var currentSceneProgress: CGFloat = 0
+    var currentTimeLowRes: Double?
 
     private let player: AudioPlayerManager
     private let databaseManager = RTDBManager.shared
@@ -32,6 +32,11 @@ typealias StylesCollection = [String: StyleModel]
         ?? diContainer.aaxCatalogueObserver.publications.first { $0.id == audiobook.publication.id }
     }
 
+    var sortedStyles: [(key: String, value: StyleModel)] {
+        guard let styles = publication?.styles else { return [] }
+        return styles.sorted { $0.key < $1.key }
+    }
+
     init(
         audiobook: AudiobookModel,
         player: AudioPlayerManager,
@@ -40,7 +45,7 @@ typealias StylesCollection = [String: StyleModel]
         self.audiobook = audiobook
         self.player = player
         self.diContainer = diContainer
-        self.currentTimeHighRes = audiobook.playbackInfo.progressInCurrentResource
+        self.currentTimeLowRes = audiobook.playbackInfo.progressInCurrentResource
         bind()
         subscribeToSceneList()
     }
@@ -54,12 +59,12 @@ typealias StylesCollection = [String: StyleModel]
 
 extension SceneStylesViewModel {
     private func bind() {
-        player.$currentTimeHighRes
+        // Standard frequency for scene calculations and progress bar updates
+        player.$currentTime
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] currentTimeHighFrequency in
+            .sink { [weak self] currentTimeLowRes in
                 guard let self = self else { return }
-                self.currentTimeHighRes = currentTimeHighFrequency
-                self.updateCurrentSceneProgress()
+                self.currentTimeLowRes = currentTimeLowRes
             }
             .store(in: &subscriptions)
     }
@@ -69,7 +74,7 @@ extension SceneStylesViewModel {
 
 extension SceneStylesViewModel {
     var currentScene: SceneModel? {
-        guard let currentTime = currentTimeHighRes,
+        guard let currentTime = currentTimeLowRes,
               let chapter = currentChapter else {
             return nil
         }
@@ -102,6 +107,33 @@ extension SceneStylesViewModel {
         guard let scene = currentScene else { return "--:--" }
 
         return "#\(scene.sceneNumber + 1)"
+    }
+
+    var currentSceneDuration: TimeInterval {
+        guard let scene = currentScene else { return 0 }
+
+        if let start = toChapterRelativeTime(scene.startTime),
+           let end = toChapterRelativeTime(scene.endTime) {
+            return max(end - start, 0)
+        }
+
+        return max(scene.endTime - scene.startTime, 0)
+    }
+
+    var currentSceneStartTime: TimeInterval? {
+        guard let scene = currentScene else { return nil }
+        if let start = toChapterRelativeTime(scene.startTime) {
+            return start
+        }
+        return scene.startTime
+    }
+
+    var currentSceneIdentifier: String? {
+        guard let scene = currentScene else { return nil }
+        if let id = scene.sceneId, !id.isEmpty {
+            return id
+        }
+        return "scene-\(scene.sceneNumber)-\(scene.startTime)"
     }
 
     var currentStyleTitle: String? {
@@ -207,23 +239,6 @@ extension SceneStylesViewModel {
     }
 }
 
-// MARK: - Current Scene Index and Progress Update
-
-extension SceneStylesViewModel {
-    private func updateCurrentSceneProgress() {
-        guard let currentTime = currentTimeHighRes,
-              let scene = currentScene,
-              let sceneStart = toChapterRelativeTime(scene.startTime),
-              let sceneEnd = toChapterRelativeTime(scene.endTime) else {
-            currentSceneProgress = 0
-            return
-        }
-
-        let duration = max(sceneEnd - sceneStart, 0.001)
-        let progress = (currentTime - sceneStart) / duration
-        currentSceneProgress = CGFloat(min(max(progress, 0), 1))
-    }
-}
 
 // MARK: - Current Style Update Logic
 

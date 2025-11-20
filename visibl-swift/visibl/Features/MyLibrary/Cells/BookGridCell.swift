@@ -89,7 +89,19 @@ private extension BookGridCell {
 
 private extension BookGridCell {
     @ViewBuilder var processingLabel: some View {
-        if let task = downloadTask, task.overallProgress > 0.0 {
+        if aaxPipeline.pendingAudiobookIds.contains(audiobook.id) {
+            Text("my_books_pending_title".localized)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.customBlack)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(.thinMaterial)
+                        .shadow(color: .black.opacity(0.15), radius: 4)
+                )
+                .padding(6)
+        } else if let task = downloadTask, task.overallProgress > 0.0 {
             Text("my_books_downloading_title".localized)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.customBlack)

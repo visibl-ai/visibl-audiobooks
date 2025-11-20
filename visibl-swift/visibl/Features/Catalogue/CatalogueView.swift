@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Mixpanel
 
 struct CatalogueView: View {
     private let coordinator: Coordinator
@@ -51,6 +52,33 @@ struct CatalogueView: View {
             }
     }
     
+    private var syncButton: some View {
+        Button(action: {
+            Task {
+                await viewModel.refreshAAXFeed()
+            }
+        }) {
+            HStack {
+                if viewModel.isPrivateFeedLoading {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                
+                Text("Sync Imported Library")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(height: 44)
+            .frame(maxWidth: .infinity)
+            .background(.customIndigo.gradient, in: .rect(cornerRadius: 10))
+            .padding(.horizontal, 14)
+        }
+    }
+    
     @ViewBuilder
     private var mainView: some View {
         ScrollView {
@@ -70,6 +98,7 @@ struct CatalogueView: View {
                         )
                     }
                 case .aax:
+                    // syncButton
                     if viewModel.isPrivateFeedLoading {
                         LoadingPlaceholder()
                     } else {
@@ -87,6 +116,13 @@ struct CatalogueView: View {
                         }
                     }
                 }
+            }
+        }
+        .refreshable {
+            if coordinator.selectedCatalogueSource == .aax {
+                await viewModel.refreshAAXFeed()
+            } else {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
     }
@@ -134,6 +170,7 @@ private extension CatalogueView {
 private extension CatalogueView {
     private var connectAAXView: some View {
         AAXBannerView(action: {
+            Mixpanel.mainInstance().track(event: "aax_connect_button_tapped")
             HapticFeedback.shared.trigger(style: .light)
             
             if diContainer.authService.isUserSignedIn() {

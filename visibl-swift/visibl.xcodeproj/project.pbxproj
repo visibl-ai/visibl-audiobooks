@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		742811982E820A0C002B91EA /* AAXCPlayer in Frameworks */ = {isa = PBXBuildFile; productRef = 742811972E820A0C002B91EA /* AAXCPlayer */; };
+		74241A482EC5CCBE004FD753 /* AAXCPlayer in Frameworks */ = {isa = PBXBuildFile; productRef = 74241A472EC5CCBE004FD753 /* AAXCPlayer */; };
 		742D64582D78D1BB00FD6174 /* SDDownloadManager in Frameworks */ = {isa = PBXBuildFile; productRef = 742D64572D78D1BB00FD6174 /* SDDownloadManager */; };
 		744A782A2E55C3E1007DC224 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 744A78292E55C3E1007DC224 /* PostHog */; };
 		744EBFDB2D0744940041E33C /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 744EBFDA2D0744940041E33C /* Kingfisher */; };
@@ -28,6 +28,7 @@
 		74D9F5972D11A29F003C3DC4 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 74D9F5962D11A29F003C3DC4 /* GoogleSignInSwift */; };
 		74DDBC7C2E5C3FF500A2F931 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 74DDBC7B2E5C3FF500A2F931 /* FirebaseAppCheck */; };
 		74E126EA2E7422A5003D1C0E /* AAXCPlayer in Frameworks */ = {isa = PBXBuildFile; productRef = 74E126E92E7422A5003D1C0E /* AAXCPlayer */; };
+		74EEE0E22EBCBA7D00DBB7A1 /* Mixpanel in Frameworks */ = {isa = PBXBuildFile; productRef = 74EEE0E12EBCBA7D00DBB7A1 /* Mixpanel */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +83,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				App/Constants.swift,
+				Common/UX/Loadify.swift,
 				Features/Account/Logic/AuthError.swift,
 				Features/Player/AudioPlayerKit/Enums/PlayerError.swift,
 				Features/Player/AudioPlayerKit/Enums/PlayerState.swift,
@@ -102,7 +104,6 @@
 				Models/SceneModel.swift,
 				Models/StyleModel.swift,
 				Models/UserLibraryItemModel.swift,
-				Shared/UX/Loadify.swift,
 			);
 			target = 74A1A06A2D90BCA400C12536 /* visiblTests */;
 		};
@@ -171,10 +172,11 @@
 				74DDBC7C2E5C3FF500A2F931 /* FirebaseAppCheck in Frameworks */,
 				74E126EA2E7422A5003D1C0E /* AAXCPlayer in Frameworks */,
 				74CD996F2DE6768E00B3336C /* Shimmer in Frameworks */,
+				74241A482EC5CCBE004FD753 /* AAXCPlayer in Frameworks */,
+				74EEE0E22EBCBA7D00DBB7A1 /* Mixpanel in Frameworks */,
 				74D9F5972D11A29F003C3DC4 /* GoogleSignInSwift in Frameworks */,
 				74D9F52C2D119DCB003C3DC4 /* FirebaseAuth in Frameworks */,
 				74D9F5362D119DCB003C3DC4 /* FirebaseDynamicLinks in Frameworks */,
-				742811982E820A0C002B91EA /* AAXCPlayer in Frameworks */,
 				74D9F5302D119DCB003C3DC4 /* FirebaseCore in Frameworks */,
 				7457A7AF2E2E2A60003642BC /* FirebaseStorage in Frameworks */,
 				74D9F5382D119DCB003C3DC4 /* FirebaseFunctions in Frameworks */,
@@ -188,13 +190,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		7421FD482E8A6DA9006F03D5 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		74F98D242D0673D2002D1793 = {
 			isa = PBXGroup;
 			children = (
@@ -202,7 +197,6 @@
 				747BC9292D9085040056DF3D /* visibl */,
 				74A1A06C2D90BCA400C12536 /* visiblTests */,
 				74D34EB62DB132B40073E3C0 /* visiblUITests */,
-				7421FD482E8A6DA9006F03D5 /* Frameworks */,
 				74F98D2E2D0673D2002D1793 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -270,6 +264,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 74F98D3B2D0673D3002D1793 /* Build configuration list for PBXNativeTarget "visibl" */;
 			buildPhases = (
+				7475C05F2EC4F4E600A96468 /* GoogleService plist setup */,
 				74F98D292D0673D2002D1793 /* Sources */,
 				74F98D2A2D0673D2002D1793 /* Frameworks */,
 				74F98D2B2D0673D2002D1793 /* Resources */,
@@ -305,7 +300,8 @@
 				744A78292E55C3E1007DC224 /* PostHog */,
 				74DDBC7B2E5C3FF500A2F931 /* FirebaseAppCheck */,
 				74E126E92E7422A5003D1C0E /* AAXCPlayer */,
-				742811972E820A0C002B91EA /* AAXCPlayer */,
+				74EEE0E12EBCBA7D00DBB7A1 /* Mixpanel */,
+				74241A472EC5CCBE004FD753 /* AAXCPlayer */,
 			);
 			productName = visibl;
 			productReference = 74F98D2D2D0673D2002D1793 /* visibl.app */;
@@ -351,7 +347,8 @@
 				74CD996D2DE6768E00B3336C /* XCRemoteSwiftPackageReference "SwiftUI-Shimmer" */,
 				74C78DC12E01EB6500882596 /* XCRemoteSwiftPackageReference "AAXConnectSwift" */,
 				744A78282E55C3E1007DC224 /* XCRemoteSwiftPackageReference "posthog-ios" */,
-				742811962E820A0C002B91EA /* XCRemoteSwiftPackageReference "AAXCPlayer" */,
+				74EEE0E02EBCBA7D00DBB7A1 /* XCRemoteSwiftPackageReference "mixpanel-swift" */,
+				74241A462EC5CCBE004FD753 /* XCRemoteSwiftPackageReference "AAXCPlayer" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 74F98D2E2D0673D2002D1793 /* Products */;
@@ -390,6 +387,26 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		7475C05F2EC4F4E600A96468 /* GoogleService plist setup */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/visibl/BuildConfig/GoogleService-Info-$(CONFIGURATION).plist",
+			);
+			name = "GoogleService plist setup";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(CONFIGURATION_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\necho \"🔧 Copying Firebase plist for configuration: ${CONFIGURATION}\"\n\nSRC_FILE=\"${SRCROOT}/visibl/BuildConfig/GoogleService-Info-${CONFIGURATION}.plist\"\nDEST_DIR=\"${CONFIGURATION_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nDEST_FILE=\"${DEST_DIR}/GoogleService-Info.plist\"\n\nif [ -f \"${SRC_FILE}\" ]; then\n    mkdir -p \"${DEST_DIR}\"\n    cp \"${SRC_FILE}\" \"${DEST_FILE}\"\n    echo \"✅ Copied ${SRC_FILE} → ${DEST_FILE}\"\nelse\n    echo \"❌ Firebase config file not found: ${SRC_FILE}\"\n    exit 1\nfi\n";
+		};
 		748FA4302D6CA2C00087688B /* Crashlytics */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -701,7 +718,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.5;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -738,7 +755,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.5;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -791,11 +808,11 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		742811962E820A0C002B91EA /* XCRemoteSwiftPackageReference "AAXCPlayer" */ = {
+		74241A462EC5CCBE004FD753 /* XCRemoteSwiftPackageReference "AAXCPlayer" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mkb69/AAXCPlayer";
 			requirement = {
-				branch = main;
+				branch = "fix/cpu-max";
 				kind = branch;
 			};
 		};
@@ -855,12 +872,20 @@
 				minimumVersion = 8.0.0;
 			};
 		};
+		74EEE0E02EBCBA7D00DBB7A1 /* XCRemoteSwiftPackageReference "mixpanel-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mixpanel/mixpanel-swift";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		742811972E820A0C002B91EA /* AAXCPlayer */ = {
+		74241A472EC5CCBE004FD753 /* AAXCPlayer */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 742811962E820A0C002B91EA /* XCRemoteSwiftPackageReference "AAXCPlayer" */;
+			package = 74241A462EC5CCBE004FD753 /* XCRemoteSwiftPackageReference "AAXCPlayer" */;
 			productName = AAXCPlayer;
 		};
 		742D64572D78D1BB00FD6174 /* SDDownloadManager */ = {
@@ -961,6 +986,11 @@
 		74E126E92E7422A5003D1C0E /* AAXCPlayer */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AAXCPlayer;
+		};
+		74EEE0E12EBCBA7D00DBB7A1 /* Mixpanel */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 74EEE0E02EBCBA7D00DBB7A1 /* XCRemoteSwiftPackageReference "mixpanel-swift" */;
+			productName = Mixpanel;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -130,15 +130,23 @@ private extension BookListCell {
                 .lineLimit(2)
                 .opacity(isGraphReady && isAAXready ? 1.0 : 0.42)
                 // .opacity(!isTranscribing || audiobook.isPlayable ? 1.0 : 0.42)
-            
-            if let task = downloadTask, task.overallProgress > 0.0 {
+
+            if aaxPipeline.pendingAudiobookIds.contains(audiobook.id) {
+                Text("my_books_pending_title".localized)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.customWhite)
+                    .frame(height: 20)
+                    .padding(.horizontal, 10)
+                    .background(.customBlack, in: .rect(cornerRadius: 4))
+                    .padding(.top, 3)
+            } else if let task = downloadTask, task.overallProgress > 0.0 {
                 HStack(spacing: 6) {
                     Text("\(Int(task.overallProgress * 100))%")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.customWhite)
                         .frame(width: 28, height: 20)
                         .background(.customBlack, in: .rect(cornerRadius: 4))
-                    
+
                     Text("my_books_downloading_title".localized)
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.customWhite)

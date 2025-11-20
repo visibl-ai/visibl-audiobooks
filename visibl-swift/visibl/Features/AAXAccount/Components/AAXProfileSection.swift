@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Mixpanel
 
 struct AAXProfileSection: View {
     private let coordinator: Coordinator
@@ -98,6 +99,7 @@ struct AAXProfileSection: View {
     }
     
     private func connectAAX() {
+        Mixpanel.mainInstance().track(event: "aax_connect_button_tapped")
         HapticFeedback.shared.trigger(style: .light)
         
         guard authService.isUserSignedIn() else {

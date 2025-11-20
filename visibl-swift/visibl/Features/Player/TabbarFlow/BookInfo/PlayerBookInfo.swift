@@ -23,11 +23,48 @@ struct PlayerBookInfo: View {
         let state = playerViewModel.playerState
         return state == .loading || state == .buffering || state == .idle
     }
-    
+
+    private var isNextChapterProcessing: Bool {
+        guard let graphProgress = playerViewModel.audiobook.graphProgress else {
+            return false
+        }
+
+        let playbackInfo = playerViewModel.audiobook.playbackInfo
+        let currentIndex = playbackInfo.currentResourceIndex
+        let progressInChapterSeconds = playbackInfo.progressInCurrentResource
+        let nextIndex = currentIndex + 1
+
+        guard nextIndex < playerViewModel.audiobook.readingOrder.count else {
+            return false
+        }
+
+        let currentChapter = playerViewModel.audiobook.readingOrder[currentIndex]
+        let timeUntilEnd = currentChapter.duration - progressInChapterSeconds
+        let isNearEnd = timeUntilEnd <= 5
+
+        let isNextProcessing = graphProgress.processingChapters?.contains(nextIndex) ?? false
+
+        // print("🎯 Chapter \(currentIndex), progress: \(progressInChapterSeconds)s, duration: \(currentChapter.duration)s")
+        // print("🎯 timeUntilEnd: \(timeUntilEnd)s, isNearEnd: \(isNearEnd), nextProcessing: \(isNextProcessing)")
+
+        return isNearEnd && isNextProcessing
+    }
+
     var body: some View {
         VStack (spacing: 0) {
+            if isNextChapterProcessing {
+                ToastifyView(
+                    style: .info,
+                    text: "player_chapter_in_not_ready_message".localized,
+                    action: {}
+                )
+                .padding(.top, 16)
+                .padding(.horizontal, 4)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
-            
+
             VStack(alignment: .leading, spacing: 6) {
                 VStack (spacing: 2) {
                     Text(playerViewModel.audiobook.authors.joined(separator: ", "))
@@ -72,6 +109,7 @@ struct PlayerBookInfo: View {
                 )
             )
         }
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isNextChapterProcessing)
     }
     
     @ViewBuilder private var transcriptionMinimizedView: some View {

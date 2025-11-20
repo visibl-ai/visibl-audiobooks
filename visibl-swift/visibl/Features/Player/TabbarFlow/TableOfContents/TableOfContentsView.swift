@@ -43,9 +43,11 @@ struct TableOfContentsView: View {
                     Button(action: {
                         if isChapterProcessing(index: index) {
                             Toastify.show(style: .warning, message: "chapter_processing_message".localized)
+                            return
                         }
                         
                         guard isChapterReady(index: index) else {
+                            Toastify.show(style: .warning, message: "chapter_is_not_ready_message".localized)
                             return
                         }
 
@@ -71,7 +73,6 @@ struct TableOfContentsView: View {
                             }
                         }
                     }
-                    // .disabled(!isChapterReady(index: index))
                     .opacity(isChapterReady(index: index) ? 1.0 : isChapterProcessing(index: index) ? 0.6 : 0.3)
                     .id(index)
                 }
@@ -93,6 +94,7 @@ struct TableOfContentsView: View {
         guard let completedChapters = viewModel.audiobook.graphProgress?.completedChapters else {
             return true
         }
+        
         return completedChapters.contains(index)
     }
 
@@ -100,6 +102,7 @@ struct TableOfContentsView: View {
         guard let processingChapters = viewModel.audiobook.graphProgress?.processingChapters else {
             return false
         }
+        
         return processingChapters.contains(index)
     }
 }

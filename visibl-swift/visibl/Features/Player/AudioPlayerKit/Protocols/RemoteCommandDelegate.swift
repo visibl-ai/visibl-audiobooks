@@ -41,20 +41,23 @@ public final class RemoteCommandHandler {
         public let nextPreviousEnabled: Bool
         public let seekEnabled: Bool
         public let changePlaybackPositionEnabled: Bool
-        public let seekInterval: TimeInterval
-        
+        public let seekForwardInterval: TimeInterval
+        public let seekBackwardInterval: TimeInterval
+
         public init(
             playPauseEnabled: Bool = true,
             nextPreviousEnabled: Bool = false,
             seekEnabled: Bool = true,
             changePlaybackPositionEnabled: Bool = true,
-            seekInterval: TimeInterval = 15.0
+            seekForwardInterval: TimeInterval = 30.0,
+            seekBackwardInterval: TimeInterval = 15.0
         ) {
             self.playPauseEnabled = playPauseEnabled
             self.nextPreviousEnabled = nextPreviousEnabled
             self.seekEnabled = seekEnabled
             self.changePlaybackPositionEnabled = changePlaybackPositionEnabled
-            self.seekInterval = seekInterval
+            self.seekForwardInterval = seekForwardInterval
+            self.seekBackwardInterval = seekBackwardInterval
         }
     }
     
@@ -114,16 +117,16 @@ public final class RemoteCommandHandler {
         if configuration.seekEnabled {
             // Configure skip forward command
             let skipForwardCommand = commandCenter.skipForwardCommand
-            skipForwardCommand.preferredIntervals = [NSNumber(value: configuration.seekInterval)]
+            skipForwardCommand.preferredIntervals = [NSNumber(value: configuration.seekForwardInterval)]
             registeredCommands.append(
                 skipForwardCommand.addTarget { [weak self] _ in
                     self?.delegate?.remoteCommandSeekForward() ?? .noSuchContent
                 }
             )
-            
-            // Configure skip backward command  
+
+            // Configure skip backward command
             let skipBackwardCommand = commandCenter.skipBackwardCommand
-            skipBackwardCommand.preferredIntervals = [NSNumber(value: configuration.seekInterval)]
+            skipBackwardCommand.preferredIntervals = [NSNumber(value: configuration.seekBackwardInterval)]
             registeredCommands.append(
                 skipBackwardCommand.addTarget { [weak self] _ in
                     self?.delegate?.remoteCommandSeekBackward() ?? .noSuchContent

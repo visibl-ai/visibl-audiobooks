@@ -54,4 +54,13 @@ struct Constants {
         let url = Bundle.main.object(forInfoDictionaryKey: "APP_DISCORD_SERVER_URL") as? String ?? ""
         return "https://" + url
     }
+    
+    static var mixpanelToken: String {
+        return Bundle.main.object(forInfoDictionaryKey: "MIXPANEL_TOKEN") as? String ?? ""
+    }
+    
+    static var mixpanelServerURL: String {
+        let url = Bundle.main.object(forInfoDictionaryKey: "MIXPANEL_SERVER_URL") as? String ?? ""
+        return "https://" + url
+    }
 }

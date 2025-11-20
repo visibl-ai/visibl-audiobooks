@@ -22,7 +22,6 @@ final class NowPlayingViewModel: ObservableObject {
     
     @Published var isPlaying: Bool = false
     @Published var currentTime: Double?
-    @Published var currentTimeHighRes: Double?
     
     var chapters: ChapterData = [] {
         didSet {
@@ -78,14 +77,6 @@ extension NowPlayingViewModel {
                 self?.updateSceneImage()
             }
             .store(in: &subscriptions)
-            
-        player.$currentTimeHighRes
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] currentTimeHighRes in
-                self?.currentTimeHighRes = currentTimeHighRes
-                self?.updateSceneImage()
-            }
-            .store(in: &subscriptions)
         
         // Observe changes to currentSceneStyle
         player.$audiobook
@@ -121,7 +112,6 @@ extension NowPlayingViewModel {
     func stopPlayer() {
         player.stop()
         player.currentTime = nil
-        player.currentTimeHighRes = nil
         imageURL = nil
     }
 }
@@ -148,7 +138,7 @@ extension NowPlayingViewModel {
     }
     
     var getCurrentScene: SceneModel? {
-        guard let currentTime = currentTimeHighRes,
+        guard let currentTime = currentTime,
               let chapter = currentChapter else {
             return nil
         }

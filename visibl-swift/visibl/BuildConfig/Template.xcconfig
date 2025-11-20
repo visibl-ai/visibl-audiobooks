@@ -36,3 +36,7 @@ APP_DISCORD_SERVER_URL = discord.com/invite/replace_me
 // PostHog
 POSTHOG_API_KEY = your_api_key_here
 POSTHOG_HOST = eu.i.posthog.com // without https://
+
+// Mixpanel
+MIXPANEL_TOKEN = replace.me
+MIXPANEL_SERVER_URL = replace.me
