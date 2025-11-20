@@ -10,6 +10,7 @@ import logger from "../../util/logger.js";
 import whisper from "../groq/whisper.js";
 import {downloadFileFromBucket} from "../../storage/storage.js";
 import {deleteLocalFiles} from "../../storage/storage.js";
+import {flushAnalytics} from "../../analytics/index.js";
 
 /**
  * Queue implementation for Groq Whisper transcription requests
@@ -73,12 +74,21 @@ class GroqQueue extends AiQueue {
       const stream = fs.createReadStream(localPath);
 
       // Call whisperTranscribe with the appropriate parameters
+      const uid = entry.params?.uid || "admin";
       const transcription = await whisper.whisperTranscribe({
         stream,
         offset: offset || 0,
         prompt: prompt || "",
         chapter: audioPath,
         retry: 0, // Don't use internal retry since we handle it at queue level
+        distinctId: uid,
+        traceId: entry.id,
+        sku: entry.params?.sku || "unknown",
+        uid: uid,
+        posthogGroups: {
+          sku: entry.params?.sku || "unknown",
+          uid: uid,
+        },
       });
 
       // Check for errors in transcription
@@ -92,6 +102,11 @@ class GroqQueue extends AiQueue {
         tokensUsed: Math.ceil((transcription.length || 0) * 0.25),
       };
     } finally {
+      // Flush PostHog events to ensure they're sent after each transcription
+      await flushAnalytics().catch((err) => {
+        logger.debug(`PostHog flush warning: ${err.message}`);
+      });
+
       // Clean up downloaded temp file if we created one
       if (downloadedFile) {
         logger.debug(`Cleaning up temp file: ${localPath}`);

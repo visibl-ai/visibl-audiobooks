@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable require-jsdoc */
 import GraphPipelineBase from "../GraphPipelineBase.js";
+import {PIPELINE_STEPS} from "./pipelineSteps.js";
 
 import {
   graphCharactersByChapter,
@@ -52,26 +53,7 @@ import {catalogueGetRtdb} from "../../storage/realtimeDb/catalogue.js";
 export default class GraphPipelineV0_1 extends GraphPipelineBase {
   constructor() {
     super();
-    this.pipelineSteps = {
-      CORRECT_TRANSCRIPTIONS: "correctTranscriptions",
-      // Parallel entity processing steps
-      ENTITIES_BY_CHAPTER: "entitiesByChapter",
-      ENTITY_PROPERTIES: "entityProperties",
-      ENTITY_CONTINUITY: "entityContinuity",
-      CONSOLIDATE_ENTITY_PROPERTIES: "consolidateEntityProperties",
-      GENERATE_ENTITY_IMAGE_PROMPTS: "generateEntityImagePrompts",
-      SUMMARIZE_ENTITY_IMAGE_PROMPTS: "summarizeEntityImagePrompts",
-      // Scene generation
-      GENERATE_SCENES: "generateScenes",
-      AUGMENT_SCENE_PROMPTS: "augmentScenePrompts",
-      UPDATE_SCENE_CACHE: "updateSceneCache",
-      // Image generation steps (sequential)
-      GENERATE_CHARACTER_IMAGES: "generateCharacterImages",
-      GENERATE_CHARACTER_PROFILE_IMAGES: "generateCharacterProfileImages",
-      GENERATE_LOCATION_IMAGES: "generateLocationImages",
-      // Generate origin Scene and load into RTDB
-      // generate images for first X scenes in origin...
-    };
+    this.pipelineSteps = PIPELINE_STEPS;
     Object.freeze(this.pipelineSteps);
   }
 
@@ -81,6 +63,14 @@ export default class GraphPipelineV0_1 extends GraphPipelineBase {
 
   getPipelineSteps() {
     return this.pipelineSteps;
+  }
+
+  /**
+   * Get all valid pipeline stage values
+   * @return {string[]} Array of valid stage values
+   */
+  static getValidStages() {
+    return Object.values(PIPELINE_STEPS);
   }
 
   getFirstStep() {
@@ -142,6 +132,7 @@ export default class GraphPipelineV0_1 extends GraphPipelineBase {
         }
         await correctTranscriptionsByChapter({
           uid: graphItem.uid,
+          graphId: graphItem.id,
           sku: graphItem.sku,
           chapter: graphItem.chapter,
         });
@@ -519,7 +510,7 @@ export default class GraphPipelineV0_1 extends GraphPipelineBase {
    *   Example: [{chapter: 0, scene: 1}, {chapter: 0, scene: 2}, {chapter: 1, scene: 1}]
    * @return {Promise<Object>} Result of scene image composition
    */
-  async composeSceneImages({graphId, defaultSceneId, scenes}) {
-    return await composeSceneImages({graphId, defaultSceneId, scenes});
+  async composeSceneImages({graphId, defaultSceneId, scenes, sku, uid}) {
+    return await composeSceneImages({graphId, defaultSceneId, scenes, sku, uid});
   }
 }

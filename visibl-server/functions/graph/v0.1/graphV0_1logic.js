@@ -53,6 +53,7 @@ import {
 } from "../../util/dispatch.js";
 
 import logger from "../../util/logger.js";
+import {createAnalyticsOptions} from "../../analytics/index.js";
 
 import graphPrompts from "./graphV0_1Prompts.js";
 import {OpenRouterClient, OpenRouterMockResponse} from "../../ai/openrouter/base.js";
@@ -88,9 +89,12 @@ function transcriptionsToText(transcriptions) {
  * @param {Array<string>} characterNames - Raw list of character names
  * @param {string} chapterText - Full text of the chapter
  * @param {Object} metadata - Book metadata (title, author)
+ * @param {string} uid - User ID for analytics
+ * @param {string} graphId - Graph ID for analytics
+ * @param {string} sku - Book SKU for analytics
  * @return {Promise<Array<Object>>} Array of consolidated characters with name and aliases
  */
-async function consolidateCharacters({characterNames, chapterText, replacements}) {
+async function consolidateCharacters({characterNames, chapterText, replacements, uid, graphId, sku}) {
   const openRouterClient = new OpenRouterClient();
   // TODO: reduce thinking if we fail (from medium to low)
   const result = await openRouterClient.sendRequest({
@@ -119,6 +123,7 @@ async function consolidateCharacters({characterNames, chapterText, replacements}
         })),
       },
     }),
+    analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_consolidate_characters"}),
   });
   if (result.error) {
     throw new Error(`Error consolidating characters: ${result.error}`);
@@ -138,7 +143,7 @@ async function consolidateCharacters({characterNames, chapterText, replacements}
  * @param {Object} replacements - Book metadata (title, author)
  * @return {Promise<Array<Object>>} Array of consolidated locations with name and aliases
  */
-async function consolidateLocations({locationNames, chapterText, replacements}) {
+async function consolidateLocations({locationNames, chapterText, replacements, uid, sku, graphId}) {
   const openRouterClient = new OpenRouterClient();
 
 
@@ -160,6 +165,7 @@ async function consolidateLocations({locationNames, chapterText, replacements}) 
         value: JSON.stringify(locationNames, null, 2),
       },
     ],
+    analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_consolidate_locations"}),
     mockResponse: new OpenRouterMockResponse({
       content: {
         locations: locationNames.slice(0, 5).map((name, index) => ({
@@ -184,12 +190,13 @@ async function consolidateLocations({locationNames, chapterText, replacements}) 
 /**
  * Correct transcriptions for a given chapter
  * @param {string} uid - User ID
+ * @param {string} graphId - Graph ID
  * @param {string} sku - Book SKU
  * @param {number} chapter - Chapter number
  * @return {Promise<void>}
  */
-async function correctTranscriptionsByChapter({uid, sku, chapter}) {
-  await correctTranscriptions({uid, sku, chapter});
+async function correctTranscriptionsByChapter({uid, graphId, sku, chapter}) {
+  await correctTranscriptions({uid, graphId, sku, chapter});
 }
 
 /**
@@ -276,6 +283,7 @@ async function graphCharactersByChapter(params) {
           ],
         },
       }),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_get_characters_chunk"}),
     });
 
     // We don't throw here because we are chunking, and can hopefully still have a
@@ -338,7 +346,11 @@ async function graphCharactersByChapter(params) {
     replacements: {
       title: title,
       author: author,
-    }});
+    },
+    uid,
+    graphId,
+    sku,
+  });
 
   // Post-process to merge duplicates and validate all characters are present
   const mergedCharacters = [];
@@ -490,6 +502,7 @@ async function graphLocationsByChapter(params) {
           ],
         },
       }),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_get_locations_chunk"}),
     });
 
     // Check for API errors and throw if present
@@ -553,7 +566,11 @@ async function graphLocationsByChapter(params) {
     replacements: {
       title: title,
       author: author,
-    }});
+    },
+    uid: uid,
+    sku: sku,
+    graphId: graphId,
+  });
   // Create location list with consolidated names and aliases, all lowercase
   const locationsList = {
     locations: consolidatedLocations.map((loc) => ({
@@ -673,6 +690,7 @@ async function graphCharacterPropertiesByChapter(params) {
           value: characterAliases,
         },
       ],
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_character_properties_single"}),
       mockResponse: new OpenRouterMockResponse({
         content: {
           properties: [
@@ -895,6 +913,7 @@ async function graphLocationPropertiesByChapter(params) {
           ],
         },
       }),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_location_properties_single"}),
     });
 
     // Moe to fix - don't throw, log a big warning but we need to move on.
@@ -1095,6 +1114,7 @@ async function generateCharacterImagePrompts(params) {
           description: `Mock image description for ${charName}: A detailed portrait showing distinctive features including ${properties.length > 0 ? properties[0].property : "unique characteristics"}.`,
         },
       }),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_character_image_prompt"}),
     });
 
     // We throw as this is pretty critical to the graph.
@@ -1245,6 +1265,7 @@ async function generateLocationImagePrompts(params) {
           description: `Mock image description for ${locName}: A sweeping vista featuring ${properties.length > 0 ? properties[0].property : "distinctive landmarks"}.`,
         },
       }),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_location_image_prompt"}),
     });
 
     // We throw as this is pretty critical to the graph.
@@ -1406,6 +1427,8 @@ async function generateCharacterImages(params) {
       chapter,
       identifier: normalizedIdentifier,
       type: "character",
+      sku: sku,
+      uid: params.uid,
     });
 
     // Generate unique key for deduplication
@@ -1539,6 +1562,8 @@ async function generateCharacterProfileImages(params) {
         chapter,
         identifier: `${normalizedIdentifier}`,
         type: "character-profile",
+        sku: sku,
+        uid: uid,
       });
 
       // Generate unique key for deduplication
@@ -1589,7 +1614,7 @@ async function generateCharacterProfileImages(params) {
  * @return {Promise<void>}
  */
 async function generateLocationImages(params) {
-  const {sku, graphId, chapter} = params;
+  const {uid, sku, graphId, chapter} = params;
 
   logger.debug(`${graphId} Generating location images for chapter ${chapter}`);
 
@@ -1697,6 +1722,8 @@ async function generateLocationImages(params) {
       chapter,
       identifier: normalizedIdentifier,
       type: "location",
+      sku: sku,
+      uid: uid,
     });
 
     // Generate unique key for deduplication
@@ -1804,6 +1831,7 @@ async function summarizeCharacterImagePrompts(params) {
       mockResponse: new OpenRouterMockResponse({
         content: `Mock summary for ${character}: A concise description highlighting key visual features.`,
       }),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_character_image_summarize"}),
     });
 
     // We throw as this is pretty critical to the graph.
@@ -1939,6 +1967,7 @@ async function summarizeLocationImagePrompts(params) {
       mockResponse: new OpenRouterMockResponse({
         content: `Mock summary for ${location}: A brief overview of the location's key features.`,
       }),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_location_image_summarize"}),
     });
 
     // We throw as this is pretty critical to the graph.
@@ -2091,6 +2120,7 @@ async function updateSceneCache(params) {
           defaultSceneId,
           scenes: scenesToCompose,
           sku: sku,
+          uid: uid,
         });
       }
     } catch (error) {

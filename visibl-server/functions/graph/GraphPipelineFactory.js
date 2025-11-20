@@ -74,8 +74,8 @@ export default class GraphPipelineFactory {
    * @param {string} params.sku - The SKU of the catalogue item
    * @return {Promise<Object>} Result of scene image composition
    */
-  static async composeSceneImages(version, {graphId, defaultSceneId, scenes, sku}) {
+  static async composeSceneImages(version, {graphId, defaultSceneId, scenes, sku, uid}) {
     const pipeline = this.getPipeline(version);
-    return await pipeline.composeSceneImages({graphId, defaultSceneId, scenes, sku});
+    return await pipeline.composeSceneImages({graphId, defaultSceneId, scenes, sku, uid});
   }
 }

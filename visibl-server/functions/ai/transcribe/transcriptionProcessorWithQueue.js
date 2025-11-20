@@ -5,6 +5,7 @@ import {groqQueue} from "../queue/groqQueue.js";
 import {queueGetEntries} from "../../storage/firestore/queue.js";
 import {getSplitAudioPath} from "../../audio/audioMetadata.js";
 import path from "path";
+import {shutdownAnalytics} from "../../analytics/index.js";
 
 /**
  * Transcribe audio files using GroqQueue for all chapter chunks
@@ -74,6 +75,8 @@ async function transcribeChaptersWithQueue({bookData, chunkFiles, chapterToChunk
           chunkIndex,
           chapterIndex,
           globalChunkIndex: i,
+          uid,
+          sku,
         },
         estimatedTokens: Math.ceil(chunk.duration * 10), // Rough estimate
         referenceKey: `${sku}_${Date.now()}_ch${chapterIndex}_chunk${chunkIndex}`,
@@ -193,6 +196,7 @@ async function transcribeChaptersWithQueue({bookData, chunkFiles, chapterToChunk
     }
   }
 
+  await shutdownAnalytics();
   return transcriptions;
 }
 

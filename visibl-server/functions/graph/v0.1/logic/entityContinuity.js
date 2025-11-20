@@ -1,6 +1,7 @@
 /* eslint-disable camelcase */
 
 import logger from "../../../util/logger.js";
+import {createAnalyticsOptions} from "../../../analytics/index.js";
 import graphPrompts from "../graphV0_1Prompts.js";
 import {OpenRouterClient, OpenRouterMockResponse} from "../../../ai/openrouter/base.js";
 import {storeGraph} from "../../../storage/storage.js";
@@ -184,6 +185,9 @@ async function graphEntityContinuityByChapter(params) {
               "character",
               openRouterClient,
               {author, title},
+              uid,
+              graphId,
+              sku,
           ),
       );
     }
@@ -199,6 +203,9 @@ async function graphEntityContinuityByChapter(params) {
               "location",
               openRouterClient,
               {author, title},
+              uid,
+              graphId,
+              sku,
           ),
       );
     }
@@ -244,6 +251,9 @@ async function graphEntityContinuityByChapter(params) {
  * @param {string} entityType - Type of entity ("character" or "location")
  * @param {OpenRouterClient} openRouterClient - OpenRouter client instance
  * @param {Object} metadata - Book metadata (author, title)
+ * @param {string} uid - User ID for analytics
+ * @param {string} graphId - Graph ID for analytics
+ * @param {string} sku - Book SKU for analytics
  * @return {Promise<Object>} Pairwise entity matches
  */
 async function crossReferenceEntitiesPairwise(
@@ -254,6 +264,9 @@ async function crossReferenceEntitiesPairwise(
     entityType,
     openRouterClient,
     metadata,
+    uid,
+    graphId,
+    sku,
 ) {
   try {
     const currentEntityList = formatEntityList(currentChapterEntities);
@@ -280,6 +293,7 @@ async function crossReferenceEntitiesPairwise(
         },
       ],
       mockResponse: getMockContinuityMatchesResponse(entityType, currentEntityList, previousEntityList),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: promptKey}),
     });
 
     // Lowercase entity names in results for consistency

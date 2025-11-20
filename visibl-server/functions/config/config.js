@@ -44,6 +44,7 @@ const AAX_CONNECT_SOURCE = defineString("AAX_CONNECT_SOURCE");
 const CLOUDFLARE_ACCOUNT_ID = defineString("CLOUDFLARE_ACCOUNT_ID");
 const CDN_URL = defineString("CDN_URL", {default: "https://cdn.visibl.ai/"});
 const POSTHOG_HOST = defineString("POSTHOG_HOST", {default: "https://eu.i.posthog.com"});
+const ANALYTICS_PROVIDER = defineString("ANALYTICS_PROVIDER", {default: "posthog"});
 
 // Service endpoints
 const MODAL_OUTPAINT_ENDPOINT = defineString("MODAL_OUTPAINT_ENDPOINT");
@@ -58,6 +59,10 @@ const IMAGE_GEN_PRECEDING_SCENES = defineString("IMAGE_GEN_PRECEDING_SCENES", {d
 const IMAGE_GEN_FOLLOWING_SCENES = defineString("IMAGE_GEN_FOLLOWING_SCENES", {default: "10"});
 const BOOK_RUNTIME_MIN = defineString("BOOK_RUNTIME_MIN", {default: "30"});
 const GRAPH_CHECKUP_THRESHOLD_MINUTES = defineString("GRAPH_CHECKUP_THRESHOLD_MINUTES", {default: "10"});
+
+// Fine-tuned model pricing (per million tokens)
+const GPT_4_1_MINI_FT_INPUT_COST_PER_1M = defineString("GPT_4_1_MINI_FT_INPUT_COST_PER_1M", {default: "0.80"});
+const GPT_4_1_MINI_FT_OUTPUT_COST_PER_1M = defineString("GPT_4_1_MINI_FT_OUTPUT_COST_PER_1M", {default: "3.20"});
 
 // Feature flags
 const MOCK_LLM = defineBoolean("MOCK_LLM");
@@ -106,6 +111,9 @@ export {
   GRAPH_CHECKUP_THRESHOLD_MINUTES,
   POSTHOG_API_KEY,
   POSTHOG_HOST,
+  ANALYTICS_PROVIDER,
+  GPT_4_1_MINI_FT_INPUT_COST_PER_1M,
+  GPT_4_1_MINI_FT_OUTPUT_COST_PER_1M,
 };
 
 /**

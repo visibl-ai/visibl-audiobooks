@@ -17,6 +17,9 @@ import {
 import {
   getPublicUrl,
 } from "../storage.js";
+import {
+  getInstance as getAnalytics,
+} from "../../analytics/bookPipelineAnalytics.js";
 
 function libraryItemToDbRef({uid, sku}) {
   return `users/${uid}/library/${sku}`;
@@ -119,6 +122,20 @@ async function libraryAddItemRtdb({uid, data}) {
   }
 
   await storeData({ref: libraryItemToDbRef({uid, sku}), data: newItem});
+
+  // Track book added to library
+  const analytics = getAnalytics();
+  await analytics.trackBookAddedToLibrary({
+    uid,
+    sku,
+    source: data.source || "user", // Default to 'user' if not specified
+    graphAvailable: !!catalogueItem.defaultGraphId,
+    metadata: {
+      visibility: catalogueItem.visibility,
+      numChapters,
+    },
+  });
+
   return await libraryGetRtdb({uid, sku});
 }
 

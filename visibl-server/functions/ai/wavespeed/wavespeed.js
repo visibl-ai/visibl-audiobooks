@@ -235,7 +235,11 @@ async function generateImage(request) {
     const stream = Readable.from(buffer);
     logger.debug(`Wavespeed image generation complete ${outputPath}`);
 
-    return await uploadStreamAndGetCDNLink({stream: sharpStream({format: outputFormat, sourceStream: stream}), filename: outputPath});
+    const cdnResult = await uploadStreamAndGetCDNLink({stream: sharpStream({format: outputFormat, sourceStream: stream}), filename: outputPath});
+    return {
+      ...cdnResult,
+      ...result,
+    };
   } catch (error) {
     // Log error details in a structured way
     logger.error(`Wavespeed API error: ${error.message}`);
@@ -268,8 +272,39 @@ const queueEntryTypeToFunction = (entryType) => {
   }
 };
 
+/**
+ * Search for billing information for a given prediction UUID
+ * @param {Object} params - The parameters object
+ * @param {Array} params.prediction_uuids - The prediction UUIDs to search for (required)
+ * @param {number} params.start_time - The start time to search for
+ * @param {number} params.end_time - The end time to search for
+ * @param {number} params.page_size - The page size of results to return
+ * @param {number} params.page - The page number of results to return
+ * @param {string} params.sort - The field to sort by
+ * @param {string} params.billing_type - The billing type to search for
+ * @return {Promise<Object>} The billing information
+ */
+async function searchBilling(params) {
+  const {prediction_uuids} = params;
+  if (!prediction_uuids || prediction_uuids.length === 0) {
+    throw new Error("prediction_uuids is required");
+  }
+  const response = await axios.post(
+      "https://api.wavespeed.ai/api/v3/billings/search",
+      params,
+      {
+        headers: {
+          "Authorization": `Bearer ${WAVESPEED_API_KEY.value()}`,
+          "Content-Type": "application/json",
+        },
+      },
+  );
+  return response.data;
+}
+
 export {
   generateImage,
   queueEntryTypeToFunction,
+  searchBilling,
   WAVESPEED_MODELS,
 };

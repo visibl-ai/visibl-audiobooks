@@ -15,7 +15,9 @@ import {
 import {
   dispatchTask,
 } from "../../../util/dispatch.js";
-
+import {
+  catalogueGetRtdb,
+} from "../../../storage/realtimeDb/catalogue.js";
 /**
  * Add scenes to the queue for styling with the specified provider
  * @param {Object} params - The parameters object
@@ -37,6 +39,8 @@ async function styleScenesWithQueue(params) {
     defaultSceneId,
     provider = "seededit3",
     modelConfig = {},
+    sku,
+    uid,
   } = params;
 
   if (styleId === defaultSceneId) {
@@ -61,6 +65,8 @@ async function styleScenesWithQueue(params) {
         theme,
         defaultSceneId,
         modelConfig,
+        sku,
+        uid,
       });
   }
 }
@@ -87,11 +93,21 @@ async function createStyle({uid, sku, prompt, provider = "seededit3", currentTim
     throw new Error("sku must be specified");
   }
 
+  // Get graphId from catalogue
+  const catalogueItem = await catalogueGetRtdb({sku});
+  if (!catalogueItem) {
+    throw new Error(`Catalogue item not found for sku ${sku}`);
+  }
+  const graphId = catalogueItem.defaultGraphId;
+  if (!graphId) {
+    throw new Error(`Default graph not found for sku ${sku}`);
+  }
+
   // Process prompt through provider-specific conversion
   let sanitizedPrompt;
   switch (provider) {
     case "seededit3":
-      sanitizedPrompt = await convertThemeToPromptSeededit3(prompt);
+      sanitizedPrompt = await convertThemeToPromptSeededit3({uid, graphId, sku, prompt});
       break;
     default:
       throw new Error(`Unsupported provider: ${provider}`);

@@ -231,6 +231,7 @@ async function batchDispatchRequests(params) {
       responseKey: responseKey,
       promptOverride: request.promptOverride || null,
       mockResponse: request.mockResponse || null,
+      analyticsOptions: request.analyticsOptions || null,
     };
 
     // Add Gemini-specific parameter if needed

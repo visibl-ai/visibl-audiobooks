@@ -18,6 +18,7 @@ import {libraryUpdateTranscriptionStatusRtdb} from "../../storage/realtimeDb/lib
 import {catalogueGetRtdb} from "../../storage/realtimeDb/catalogue.js";
 import CatalogueProgressTracker from "../../storage/realtimeDb/CatalogueProgressTracker.js";
 import {stichTranscriptionChapters} from "../../util/transcribe.js";
+import {getInstance as getAnalytics} from "../../analytics/bookPipelineAnalytics.js";
 
 const NUM_THREADS = 4; // 32 GB instances have 8 cores. Let each ffmpeg process run 2 threads.
 
@@ -79,16 +80,64 @@ async function generateTranscriptions({uid, item, numThreads = NUM_THREADS, entr
     throw new Error("Only m4b is supported");
   }
 
+  const analytics = getAnalytics();
+
   // 1. Prepare audio streams
   await CatalogueProgressTracker.updateProgress(sku, {transcriptionStep: "preparing"});
+
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "preparing",
+    status: "started",
+  });
+
   const {chunkPlan, chapters, chapterToChunksMap} = await prepareAudioStreams({uid, sku});
+
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "preparing",
+    status: "completed",
+    metadata: {
+      numChunks: chunkPlan?.length,
+      numChapters: chapters?.length,
+    },
+  });
 
   // 2. Get metadata
   await CatalogueProgressTracker.updateProgress(sku, {transcriptionStep: "metadata"});
+
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "metadata",
+    status: "started",
+  });
+
   const metadata = await getMetaData(uid, sku);
+
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "metadata",
+    status: "completed",
+    metadata: {
+      bookTitle: metadata?.bookData?.title,
+      bookAuthor: metadata?.bookData?.author,
+    },
+  });
 
   // 3. Transcribe all chapter chunks and merge them
   await CatalogueProgressTracker.updateProgress(sku, {transcriptionStep: "transcribing"});
+
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "transcribing",
+    status: "started",
+  });
+
   const transcriptions = await transcribeChaptersWithQueue({
     bookData: metadata.bookData,
     chunkFiles: chapters,
@@ -98,14 +147,46 @@ async function generateTranscriptions({uid, item, numThreads = NUM_THREADS, entr
     uid,
   });
 
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "transcribing",
+    status: "completed",
+    metadata: {
+      numChaptersTranscribed: Object.keys(transcriptions).filter((key) => key !== "error").length,
+    },
+  });
+
   // 4. Validate transcriptions
   await CatalogueProgressTracker.updateProgress(sku, {transcriptionStep: "validating"});
+
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "validating",
+    status: "started",
+  });
+
   validateTranscriptions(transcriptions, sku);
   logger.debug(`generateTranscriptions: STEP 5: Transcriptions Complete for ${sku}`);
 
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "validating",
+    status: "completed",
+  });
 
   // 5. Save uncorrected transcriptions (raw and main)
   await CatalogueProgressTracker.updateProgress(sku, {transcriptionStep: "saving"});
+
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "saving",
+    status: "started",
+  });
+
   await saveUncorrectedTranscriptions({uid, sku, transcriptions, identifier: "raw"});
   await saveUncorrectedTranscriptions({uid, sku, transcriptions});
 
@@ -119,12 +200,48 @@ async function generateTranscriptions({uid, item, numThreads = NUM_THREADS, entr
   );
   logger.debug(`generateTranscriptions: Marked ${chapterIndices.length} chapters as ready for ${sku}`);
 
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "saving",
+    status: "completed",
+    metadata: {
+      numChaptersSaved: chapterIndices.length,
+    },
+  });
+
   // 6. Clean up local audio files
   await CatalogueProgressTracker.updateProgress(sku, {transcriptionStep: "cleanup"});
+
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "cleanup",
+    status: "started",
+  });
+
   await cleanupAudioFiles({uid, sku, chapters});
 
   // Mark transcription as complete
   await CatalogueProgressTracker.updateProgress(sku, {transcriptionStep: "cleanup", stepProgress: 100});
+
+  await analytics.trackTranscriptionStage({
+    uid,
+    sku,
+    stage: "cleanup",
+    status: "completed",
+  });
+
+  // Track complete transcription completion
+  await analytics.trackTranscriptionCompleted({
+    uid,
+    sku,
+    numChapters: chapterIndices.length,
+    metadata: {
+      bookTitle: metadata?.bookData?.title,
+      bookAuthor: metadata?.bookData?.author,
+    },
+  });
 
   // 7. Initiate graph generation for this specific book
   await checkAndInitiateGraphGeneration({uid, sku});
@@ -141,23 +258,24 @@ async function generateTranscriptions({uid, item, numThreads = NUM_THREADS, entr
  * @param {number} chapter - Chapter number
  * @return {Promise<Object>} The corrected transcriptions
  */
-async function correctTranscriptions({uid, sku, chapter}) {
+async function correctTranscriptions({uid, graphId, sku, chapter}) {
   const metadata = await getMetaData(uid, sku);
   const transcription = await loadTranscriptions({uid, sku});
   const chapterTranscription = transcription[chapter];
-  await correctTranscriptionsBatch({uid, sku, sortedChapters: [[chapter, chapterTranscription]], metadata});
+  await correctTranscriptionsBatch({uid, graphId, sku, sortedChapters: [[chapter, chapterTranscription]], metadata});
 }
 
 /**
  * Corrects transcriptions in batch using LLM
  * @param {Object} params - The parameters
  * @param {string} params.uid - User ID
+ * @param {string} params.graphId - Graph ID
  * @param {string} params.sku - Book SKU
  * @param {Array} params.sortedChapters - Array of [chapter, transcription] pairs
  * @param {Object} params.metadata - Book metadata containing title and author
  * @return {Promise<void>}
  */
-async function correctTranscriptionsBatch({uid, sku, sortedChapters, metadata}) {
+async function correctTranscriptionsBatch({uid, graphId, sku, sortedChapters, metadata}) {
   const totalChapters = sortedChapters.length;
 
   // Handle empty chapters
@@ -176,6 +294,7 @@ async function correctTranscriptionsBatch({uid, sku, sortedChapters, metadata}) 
 
     const queueResult = await sendTranscriptionToLlmWithQueue({
       uid,
+      graphId,
       sku,
       chapter,
       prompt: "correctTranscription",
@@ -209,6 +328,7 @@ async function correctTranscriptionsBatch({uid, sku, sortedChapters, metadata}) 
 /**
  * Send the transcription to the LLM for correction with a queue
  * @param {string} uid - The UID of the user
+ * @param {string} graphId - The graph ID
  * @param {string} sku - The SKU of the book
  * @param {number} chapter - The chapter number
  * @param {string} prompt - The prompt to use
@@ -225,6 +345,7 @@ async function correctTranscriptionsBatch({uid, sku, sortedChapters, metadata}) 
  */
 async function sendTranscriptionToLlmWithQueue({
   uid,
+  graphId,
   sku,
   chapter,
   prompt,
@@ -241,6 +362,7 @@ async function sendTranscriptionToLlmWithQueue({
   // Use the same validation and setup as the main function
   const validatedParams = validateAndSetupTranscriptionParams({
     uid,
+    graphId,
     sku,
     chapter,
     prompt,
@@ -258,6 +380,7 @@ async function sendTranscriptionToLlmWithQueue({
     params: {
       entryType: "transcription",
       uid,
+      graphId,
       sku,
       chapter,
       prompt,

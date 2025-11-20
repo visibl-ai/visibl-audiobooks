@@ -283,7 +283,7 @@ async function composeScenesWithQueue(params) {
 
 async function imageGenCurrentTime(req) {
   logger.info(`imageGenCurrentTime body: ${JSON.stringify(req.body)}`);
-  const {styleId, currentTime, sku} = req.body;
+  const {styleId, currentTime, sku, uid} = req.body;
   if (!styleId || currentTime === undefined || !sku) {
     throw new Error("styleId, currentTime, and sku are required");
   }
@@ -389,6 +389,8 @@ async function imageGenCurrentTime(req) {
             graphId,
             defaultSceneId,
             scenes: formattedScenes,
+            sku,
+            uid,
           },
       );
     } else {
@@ -405,6 +407,8 @@ async function imageGenCurrentTime(req) {
         styleTitle,
         theme,
         defaultSceneId,
+        sku,
+        uid,
       });
     }
   } catch (error) {

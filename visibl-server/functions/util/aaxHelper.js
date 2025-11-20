@@ -67,6 +67,7 @@ import {
 
 import {stichTranscriptionChapters} from "./transcribe.js";
 import {getTranscriptionsPath} from "../ai/transcribe/index.js";
+import {createAnalyticsOptions} from "../analytics/index.js";
 
 function formatFunctionsUrl(functionName) {
   return `${AUDIBLE_OPDS_FIREBASE_URL.value().replace("FUNCTION", functionName.replace(/_/g, "-"))}/${functionName}`;
@@ -197,6 +198,8 @@ async function aaxPostAuthHook(uid, data) {
         title: item.title,
         author: item.author,
         description: item.description || "",
+        uid: uid,
+        sku: item.sku_lite,
       });
       item.fiction = isFiction;
       logger.info(`audiblePostAuthHook: uid: ${uid}, Classified ${item.title} as ${isFiction ? "fiction" : "non-fiction"}`);
@@ -303,12 +306,13 @@ async function updateAAXCChapterFileSizes({chapters, item, metadata}) {
   await aaxUpdateItemFirestore(item);
 }
 
-async function classifyNovelFiction({title, author, description}) {
+async function classifyNovelFiction({title, author, description, uid, sku}) {
   const openRouterClient = new OpenRouterClient();
   const response = await openRouterClient.sendRequest({
     prompt: "classifyNovelFiction",
     message: `${title} by ${author}, ${description}`,
     replacements: [],
+    analyticsOptions: createAnalyticsOptions({uid, sku, promptId: "classifyNovelFiction"}),
     mockResponse: new OpenRouterMockResponse({
       content: {
         fiction: true,
@@ -395,6 +399,8 @@ async function updateAAXCLibrary({uid, data}) {
           title: book.title,
           author: book.authors,
           description: book.merchandising_summary,
+          sku: book.sku_lite,
+          uid: uid,
         });
       }
 

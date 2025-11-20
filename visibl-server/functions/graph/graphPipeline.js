@@ -26,6 +26,7 @@ import {
 import {
   calculateExponentialBackoff,
 } from "../util/graphHelper.js";
+import {getInstance as getAnalytics} from "../analytics/bookPipelineAnalytics.js";
 
 /**
  * Generate a new graph using the appropriate pipeline version
@@ -116,6 +117,26 @@ async function graphQueue() {
     } catch (error) {
       const retryCount = graphItem.retryCount || 0;
       const maxRetries = GRAPH_PIPELINE_RETRY_LIMIT;
+
+      // Track pipeline failure
+      const analytics = getAnalytics();
+      try {
+        await analytics.trackPipelineFailure({
+          uid: graphItem.uid,
+          sku: graphItem.sku,
+          graphId: graphItem.id,
+          stage: queue[0].entryType,
+          error,
+          metadata: {
+            retryCount,
+            maxRetries,
+            isFinal: retryCount >= maxRetries,
+            chapter: graphItem.chapter,
+          },
+        });
+      } catch (analyticsError) {
+        logger.warn(`Failed to track graph pipeline failure: ${analyticsError.message}`);
+      }
 
       if (retryCount < maxRetries) {
         // Calculate exponential backoff delay

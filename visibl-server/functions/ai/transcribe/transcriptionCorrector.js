@@ -1,4 +1,5 @@
 import {OpenRouterClient, OpenRouterMockResponse} from "../openrouter/base.js";
+import {createAnalyticsOptions} from "../../analytics/index.js";
 import globalPrompts from "../prompts/globalPrompts.js";
 import tokenHelper from "../openai/tokens.js";
 import logger from "../../util/logger.js";
@@ -23,11 +24,19 @@ function extractRetryParams(params) {
 /**
  * Validate and setup parameters for transcription processing
  * @param {object} params - The parameters for the transcription
+ * @param {string} params.uid - User ID for analytics
+ * @param {string} params.graphId - Graph ID for analytics
+ * @param {string} params.sku - Book SKU for analytics
+ * @param {number} params.chapter - Chapter number for analytics
+ * @param {string} params.prompt - The prompt to use
+ * @param {array} params.replacements - The replacements to use
+ * @param {array} params.message - The array of message objects to send to the LLM
  * @return {object} - Validated parameters and model information
  */
 function validateAndSetupTranscriptionParams(params) {
   const {
     uid,
+    graphId,
     sku,
     chapter,
     prompt,
@@ -70,6 +79,7 @@ function validateAndSetupTranscriptionParams(params) {
 
   return {
     uid,
+    graphId,
     sku,
     chapter,
     prompt,
@@ -143,10 +153,14 @@ function createMessageChunks(params) {
  * @param {array} params.replacements - The replacements to use
  * @param {string} params.model - The model to use
  * @param {object} params.providerOverride - Override the default provider
+ * @param {string} params.uid - User ID for analytics
+ * @param {string} params.graphId - Graph ID for analytics
+ * @param {string} params.sku - Book SKU for analytics
+ * @param {number} params.chapter - Chapter number for analytics
  * @return {array} - Array of LLM results or null if the request failed
  */
 async function processChunksWithLLM(params) {
-  const {messages, prompt, replacements, model, providerOverride} = params;
+  const {messages, prompt, replacements, model, providerOverride, uid, sku, chapter, graphId} = params;
   // Submit the prompts to OpenRouter in parallel
   const results = await Promise.all(messages.map(async (message, index) => {
     const client = new OpenRouterClient();
@@ -168,6 +182,7 @@ async function processChunksWithLLM(params) {
         },
         tokensUsed: 150,
       }),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, chapter, promptId: prompt}),
     });
 
     // Check if the result contains a content filter error
@@ -200,7 +215,7 @@ async function processChunksWithLLM(params) {
  */
 async function validateAndCombineResults(results, messages, params) {
   const retryParams = extractRetryParams(params);
-  const {uid, sku, chapter, prompt, replacements, message, retry, chunkMultiplier, providerOverride, modelOverride, model, unique} = retryParams;
+  const {uid, graphId, sku, chapter, prompt, replacements, message, retry, chunkMultiplier, providerOverride, modelOverride, model, unique} = retryParams;
 
   // Validate each chunk's results before combining
   for (let index = 0; index < results.length; index++) {
@@ -216,7 +231,20 @@ async function validateAndCombineResults(results, messages, params) {
       logger.error(`validateAndCombineResults: LLM returned wrong number of segments for chunk ${index}. Expected ${chunk.length} but got ${result.result.transcription.length}`);
       if (!retry) {
         logger.warn(`validateAndCombineResults: Retrying transcription for ${uid} ${sku} ${chapter} with model ${model}`);
-        return await sendTranscriptionToLlm({uid, sku, chapter, prompt, replacements, message, modelOverride, retry: true, chunkMultiplier, providerOverride, unique});
+        return await sendTranscriptionToLlm({
+          uid,
+          graphId,
+          sku,
+          chapter,
+          prompt,
+          replacements,
+          message,
+          modelOverride,
+          retry: true,
+          chunkMultiplier,
+          providerOverride,
+          unique,
+        });
       }
       logger.debug({result: result.result.transcription, chunk});
       throw new Error(`LLM returned wrong number of segments for chunk ${index} after retry. This indicates the LLM is not following instructions to maintain segment count.`);
@@ -322,6 +350,7 @@ async function storeChapterTranscription(params) {
 /**
  * Send the transcription to the LLM for correction
  * @param {object} params - The parameters for the transcription
+ * @param {string} params.uid - User ID for analytics
  * @param {string} params.sku - The SKU of the book
  * @param {number} params.chapter - The chapter number
  * @param {string} params.prompt - The prompt to use
@@ -331,6 +360,7 @@ async function storeChapterTranscription(params) {
  * @param {object} params.providerOverride - Override the default provider
  * @param {number} params.chunkMultiplier - The multiplier for the number of chunks
  * @param {boolean} params.retry - Whether to retry the transcription
+ * @param {string} params.graphId - The graph ID for analytics
  * @param {boolean} params.awaitCompletion - Whether to wait for the transcription to be processed
  * @return {object} - The corrected transcription
  */
@@ -355,6 +385,10 @@ async function sendTranscriptionToLlm(params) {
     replacements: validatedParams.replacements,
     model: validatedParams.model,
     providerOverride: validatedParams.providerOverride,
+    uid: params.uid,
+    sku: params.sku,
+    chapter: params.chapter,
+    graphId: params.graphId,
   });
 
   // Step 4: Validate and combine results

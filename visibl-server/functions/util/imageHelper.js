@@ -1,7 +1,7 @@
 /* eslint-disable require-jsdoc */
 import logger from "./logger.js";
 import {OpenRouterClient, OpenRouterMockResponse} from "../ai/openrouter/base.js";
-
+import {createAnalyticsOptions} from "../analytics/index.js";
 /**
  * Moderates an image prompt that was flagged for content policy violation
  * @param {Object} params - Parameters object
@@ -10,7 +10,7 @@ import {OpenRouterClient, OpenRouterMockResponse} from "../ai/openrouter/base.js
  * @return {Promise<string>} - The moderated prompt
  */
 async function moderateImagePrompt(params) {
-  const {prompt, context = ""} = params;
+  const {prompt, uid, sku, graphId, context = ""} = params;
 
   logger.debug(`Moderating image prompt: ${prompt.substring(0, 100)}...`);
 
@@ -25,6 +25,7 @@ async function moderateImagePrompt(params) {
       replacements: [
         {key: "CONTEXT", value: contextReplacement},
       ],
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "moderateImagePrompt"}),
       mockResponse: new OpenRouterMockResponse({
         content: `Mock moderated version of: ${prompt.substring(0, 50)}... [content moderated for safety]`,
       }),

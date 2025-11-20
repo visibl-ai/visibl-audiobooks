@@ -35,7 +35,7 @@ function normalizeEntityName({name}) {
  *   Example: [{chapter: 0, scene: 1}, {chapter: 0, scene: 2}, {chapter: 1, scene: 1}]
  * @return {Promise<Object>} Result of scene image composition
  */
-async function composeSceneImages({graphId, defaultSceneId, scenes, sku}) {
+async function composeSceneImages({graphId, defaultSceneId, scenes, sku, uid}) {
   logger.info(`${graphId} Composing images for ${scenes.length} scenes in graph ${graphId} using scene ${defaultSceneId}`);
 
   // Fetch the graph to get the seed for consistent image generation
@@ -208,6 +208,8 @@ async function composeSceneImages({graphId, defaultSceneId, scenes, sku}) {
       chapter,
       sceneNumber,
       type: "sceneImage",
+      sku: sku,
+      uid: uid,
     });
 
     // Generate unique key for deduplication

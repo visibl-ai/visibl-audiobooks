@@ -4,6 +4,7 @@ import {getGraph, storeGraph} from "../../../storage/storage.js";
 import {batchDispatchOpenaiRequests} from "../../../ai/queue/dispatcher.js";
 import graphPrompts from "../graphV0_1Prompts.js";
 import {OpenAIMockResponse} from "../../../ai/openai/mock.js";
+import {createAnalyticsOptions} from "../../../analytics/index.js";
 
 async function augmentScenePrompts(params) {
   const {uid, sku, visibility, chapter, graphId} = params;
@@ -55,6 +56,12 @@ async function augmentScenePrompts(params) {
         content: `Image prompt for ${sku} chapter ${chapter} scene ${scene.scene_number}`,
         tokensUsed: 50,
         model: "ft:gpt-4.1-mini-2025-04-14:visibl:image-compose-ft:CDRdKUfs",
+      }),
+      analyticsOptions: createAnalyticsOptions({
+        uid,
+        graphId,
+        sku,
+        promptId: "v0_1_augment_scene_prompt",
       }),
     };
   });

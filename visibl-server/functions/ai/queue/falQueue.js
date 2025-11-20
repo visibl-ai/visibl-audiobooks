@@ -127,6 +127,9 @@ class FalQueue extends AiQueue {
         const moderatedPrompt = await moderateImagePrompt({
           prompt: params.prompt,
           context: identifier ? `Character: ${identifier}` : "",
+          uid: entry.params.uid,
+          sku: entry.params.sku,
+          graphId: entry.params.defaultSceneId,
         });
 
         // Normalize identifier and add moderated suffix

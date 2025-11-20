@@ -11,13 +11,17 @@ import {getOriginImagesForScenes} from "./styleHelpers.js";
 import {OpenRouterClient} from "../../openrouter/base.js";
 import {OpenRouterMockResponse} from "../../openrouter/mock.js";
 import stylePrompts from "../../prompts/stylePrompts.js";
+import {createAnalyticsOptions} from "../../../analytics/index.js";
 
 /**
  * Convert theme to prompt for Wavespeed provider
  * @param {string|Object} prompt - The user's theme/prompt input
+ * @param {string} uid - User ID
+ * @param {string} graphId - Graph ID
+ * @param {string} sku - Book SKU
  * @return {Promise<Object>} Sanitized prompt object with title and prompt fields
  */
-export async function convertThemeToPrompt(prompt) {
+export async function convertThemeToPrompt({uid, graphId, sku, prompt}) {
   // IN TESTS - we can pass in a prompt object for testing.
   if (typeof prompt === "object" && prompt !== null) {
     // If prompt is already an object, use it as is
@@ -35,6 +39,7 @@ export async function convertThemeToPrompt(prompt) {
         prompt: `Transform this image into a scene that belongs in the world of ${prompt}, with cinematic lighting, costumes, and atmosphere fully adapted to that universe`,
       },
     }),
+    analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "seededit3_style"}),
   });
 
   if (sanitizedPrompt.result) {
@@ -57,10 +62,13 @@ export async function convertThemeToPrompt(prompt) {
  * @param {Object} params.modelConfig - Model configuration
  * @param {string} [params.modelConfig.model] - Specific Wavespeed model to use
  * @param {Object} [params.modelConfig.modelParams] - Additional model parameters
+ * @param {string} params.sku - Book SKU
+ * @param {string} params.uid - User ID
+ * @param {string} params.graphId - Graph ID
  * @return {Promise<void>}
  */
 export async function styleImage(params) {
-  let {scenes, styleId, styleTitle, theme, defaultSceneId, modelConfig = {}} = params;
+  let {scenes, styleId, styleTitle, theme, defaultSceneId, modelConfig = {}, sku, uid} = params;
 
   if (!theme || theme.trim() === "") {
     logger.error(`styleWithWavespeed: Cannot style without a valid theme/prompt for styleId ${styleId}`);
@@ -128,6 +136,9 @@ export async function styleImage(params) {
         interval: 1000, // 1 second
         maxAttempts: 45, // Max 60 attempts
       },
+      sku: sku,
+      uid: uid,
+      graphId: defaultSceneId,
     };
 
     // Store scene metadata for tracking

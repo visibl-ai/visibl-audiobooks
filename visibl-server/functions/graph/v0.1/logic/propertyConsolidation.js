@@ -1,6 +1,7 @@
 /* eslint-disable camelcase */
 
 import logger from "../../../util/logger.js";
+import {createAnalyticsOptions} from "../../../analytics/index.js";
 import graphPrompts from "../graphV0_1Prompts.js";
 import {OpenRouterClient, OpenRouterMockResponse} from "../../../ai/openrouter/base.js";
 import {getGraph, storeGraph} from "../../../storage/storage.js";
@@ -560,6 +561,7 @@ async function consolidatePropertiesByContinuity(params) {
           mockResponse: isCharacter ?
             getMockCharacterPropertyFilterResponse(entityName, previousPropsFormatted, currentPropsFormatted) :
             getMockLocationPropertyFilterResponse(previousProperties),
+          analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: promptKey}),
         });
 
         if (result.error) {

@@ -55,6 +55,7 @@ export const libraryChapterProgressWritten = onValueWritten(
       ref: "/users/{uid}/library/{sku}/clientData/playbackInfo/currentResourceIndex",
       region,
       memory: "4GiB",
+      secrets: firebaseFnConfig.secrets,
     },
     async (event) => {
       const pathParts = event.ref.toString().split("/");
@@ -74,6 +75,7 @@ export const libraryItemProgressWritten = onValueWritten(
       // This example assumes us-central1, but to set location:
       region,
       memory: "4GiB",
+      secrets: firebaseFnConfig.secrets,
     },
     async (event) => {
       return await processProgressUpdate(event);
@@ -140,7 +142,7 @@ export async function processProgressUpdate(event) {
   // Dispatch the carousel generation.
   // await dispatchCarouselGeneration({carouselList, currentTime: progress, sku});
   await Promise.all(carouselList.map(async (styleId) => {
-    const req = {body: {styleId, currentTime: progress, sku}};
+    const req = {body: {styleId, currentTime: progress, sku, uid}};
     return await imageGenCurrentTime(req);
   }));
   return;

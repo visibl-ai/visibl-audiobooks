@@ -35,6 +35,8 @@ import {
   sendNotifications,
 } from "../util/notifications.js";
 
+import {getInstance as getAnalytics} from "../analytics/bookPipelineAnalytics.js";
+
 /**
  * Abstract base class for graph pipeline implementations
  * This class defines the core interfaces and common functionality
@@ -96,6 +98,24 @@ export default class GraphPipelineBase {
     const version = this.getVersion();
     const newGraph = await createGraph({uid, sku, visibility, numChapters, fullTextTokens, version, isCatalogueDefault});
     logger.debug(`generateNewGraph: Created new graph ${newGraph.id} with ${fullTextTokens} tokens, version ${version}`);
+
+    // Track graph generation started
+    const analytics = getAnalytics();
+    try {
+      // Check if a graph already exists to determine generation type
+      const catalogueItem = await catalogueGetRtdb({sku});
+      const generationType = catalogueItem?.defaultGraphId ? "incremental" : "initial";
+
+      await analytics.trackGraphGenerationStarted({
+        uid,
+        sku,
+        graphId: newGraph.id,
+        version,
+        generationType,
+      });
+    } catch (analyticsError) {
+      logger.warn(`Failed to track graph generation start: ${analyticsError.message}`);
+    }
 
     // Set the starting chapter if provided
     if (startChapter !== undefined) {
@@ -221,6 +241,51 @@ export default class GraphPipelineBase {
    * @return {Promise<void>}
    */
   async updateGraphAndQueueNext({graphItem, currentStep, nextStep, statusValue = "complete"}) {
+    // Track stage completion
+    const analytics = getAnalytics();
+    try {
+      // Get current progress before updating
+      const catalogueItem = await catalogueGetRtdb({sku: graphItem.sku});
+      const progress = catalogueItem?.graphProgress?.completion || 0;
+
+      await analytics.trackGraphPipelineStage({
+        uid: graphItem.uid,
+        sku: graphItem.sku,
+        graphId: graphItem.id,
+        stage: currentStep,
+        status: "completed",
+        progress,
+        metadata: {
+          chapter: graphItem.chapter,
+          nextStep: nextStep || "complete",
+        },
+      });
+
+      // Track complete graph generation when pipeline is done
+      if (nextStep === "complete") {
+        // Get catalogue item to determine generation type
+        const catalogueItem = await catalogueGetRtdb({sku: graphItem.sku});
+
+        // Determine generation type (initial vs incremental)
+        // If this graph is the default graph, it was initial; otherwise incremental
+        const generationType = graphItem.id === catalogueItem?.defaultGraphId ? "initial" : "incremental";
+
+        // Track graph generation completed
+        await analytics.trackGraphGenerationCompleted({
+          uid: graphItem.uid,
+          sku: graphItem.sku,
+          graphId: graphItem.id,
+          generationType,
+          metadata: {
+            numChapters: graphItem.numChapters,
+            version: this.getVersion(),
+          },
+        });
+      }
+    } catch (analyticsError) {
+      logger.warn(`Failed to track graph stage completion: ${analyticsError.message}`);
+    }
+
     if (nextStep && nextStep !== "complete") {
       logger.debug(`${graphItem.id} ${currentStep} updateGraphAndQueueNext: Adding next step ${nextStep} to queue`);
       const addToQueueResult = await this.addItemToQueue({entryType: nextStep, graphItem});

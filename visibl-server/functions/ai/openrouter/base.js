@@ -5,6 +5,7 @@ import globalPrompts from "../prompts/globalPrompts.js";
 import {OPENROUTER_API_KEY, MOCK_LLM} from "../../config/config.js";
 import {mockApiCall, OpenRouterMockResponse} from "./mock.js";
 import {zodResponseFormat} from "openai/helpers/zod.mjs";
+import {captureEvent, flushAnalytics} from "../../analytics/index.js";
 
 /**
  * Reusable class for OpenRouter API requests
@@ -20,6 +21,7 @@ class OpenRouterClient {
    * @param {number} [options.timeout] - Request timeout in milliseconds
    * @param {Function} [options.apiCaller] - Function to make API calls (for dependency injection)
    * @param {Function} [options.modelsLister] - Function to list models (for dependency injection)
+   * @param {string} [options.userId] - User ID for analytics tracking
    */
   constructor(options = {}) {
     this.apiKeyParam = options.apiKey || OPENROUTER_API_KEY;
@@ -71,10 +73,12 @@ class OpenRouterClient {
    */
   async _defaultApiCaller(requestParams, wantsJson, mockResponse) {
     // In real mode, ignore mockResponse
+    const client = this.getClient();
+
     if (wantsJson) {
-      return await this.getClient().chat.completions.parse(requestParams);
+      return await client.chat.completions.parse(requestParams);
     }
-    return await this.getClient().chat.completions.create(requestParams);
+    return await client.chat.completions.create(requestParams);
   }
 
   /**
@@ -114,9 +118,12 @@ class OpenRouterClient {
    * @param {string} [request.modelOverride] - Override the default model
    * @param {Object} [request.providerOverride] - Override the default provider
    * @param {OpenRouterMockResponse} [request.mockResponse] - Mock response to use (only in mock mode)
+   * @param {Object} [request.analyticsOptions] - Analytics options for tracking
    * @return {Promise<Object>} - Response object with result, tokensUsed, and responseKey
    */
   async sendRequest(request) {
+    const startTime = Date.now(); // Track request start time for latency calculation
+
     const {
       prompt,
       message,
@@ -129,6 +136,7 @@ class OpenRouterClient {
       modelOverride,
       providerOverride = null,
       mockResponse,
+      analyticsOptions = null,
       logVerbose = true,
     } = request;
 
@@ -167,27 +175,33 @@ class OpenRouterClient {
       logger.debug(`Instruction: ${instruction.substring(0, 600)}`);
     }
 
+    // Prepare messages array (moved outside try block for error handling)
+    const messages = [
+      {role: "system", content: instruction},
+      ...history,
+      {role: "user", content: message},
+    ];
+
+    // Prepare request parameters (moved outside try block for error handling)
+    const params = {
+      model: model,
+      provider: provider,
+      messages: messages,
+      temperature: generationConfig?.temperature || 0.7,
+      max_tokens: generationConfig?.max_tokens || 4096,
+      top_p: generationConfig?.top_p || 1,
+      frequency_penalty: generationConfig?.frequency_penalty || 0,
+      presence_penalty: generationConfig?.presence_penalty || 0,
+    };
+
+    // Store analytics tracking parameters for later use
+    const analyticsTracking = {
+      distinctId: analyticsOptions?.distinctId || "system",
+      traceId: analyticsOptions?.traceId,
+      groups: analyticsOptions?.groups || {},
+    };
 
     try {
-      // Prepare messages array
-      const messages = [
-        {role: "system", content: instruction},
-        ...history,
-        {role: "user", content: message},
-      ];
-
-      // Prepare request parameters
-      const params = {
-        model: model,
-        provider: provider,
-        messages: messages,
-        temperature: generationConfig?.temperature || 0.7,
-        max_tokens: generationConfig?.max_tokens || 4096,
-        top_p: generationConfig?.top_p || 1,
-        frequency_penalty: generationConfig?.frequency_penalty || 0,
-        presence_penalty: generationConfig?.presence_penalty || 0,
-      };
-
       if (generationConfig) {
         // Copy all generationConfig keys to params except provider which is handled separately
         for (const [key, value] of Object.entries(generationConfig)) {
@@ -219,6 +233,36 @@ class OpenRouterClient {
 
       const tokensUsed = result.usage?.total_tokens || 0;
       const responseText = result.choices[0]?.message?.content || "";
+      const latencyMs = Date.now() - startTime; // Calculate actual latency
+
+      // Simple analytics event - Provider will handle the mapping
+      if (analyticsOptions) {
+        const eventProperties = {
+          provider: "openrouter",
+          model: result.model || model,
+          traceId: analyticsTracking.traceId,
+          input: messages.map((m) => m.content).join("\n"),
+          output: result.choices?.map((choice) => ({
+            role: choice.message?.role || "assistant",
+            content: choice.message?.content || "",
+          })),
+          latency: latencyMs,
+          success: true,
+          cost: result.usage?.total_cost, // Posthog will calculate this if undefined
+          result: result, // Pass full result for detailed extraction in mapper
+          groups: analyticsTracking.groups,
+          sku: analyticsOptions.sku,
+          uid: analyticsOptions.uid,
+          graphId: analyticsOptions.graphId,
+          promptId: analyticsOptions.promptId,
+        };
+
+        await captureEvent("llm_generation", eventProperties, analyticsTracking.distinctId);
+      }
+
+      // Flush pending analytics events without shutting down the client
+      // In serverless, the process will terminate naturally after the function completes
+      await flushAnalytics();
       if (logVerbose) {
         logger.debug(`OpenRouter response received - id: ${result.id}, provider: ${result.provider}, model: ${result.model}, usage: ${JSON.stringify(result.usage)}`);
         logger.debug(JSON.stringify(responseText).substring(0, 150));
@@ -248,6 +292,34 @@ class OpenRouterClient {
       }
 
       logger.error("Error sending message to OpenRouter:", error);
+      const errorLatencyMs = Date.now() - startTime; // Calculate latency even for errors
+
+      // Simple error tracking event
+      if (analyticsOptions) {
+        const errorProperties = {
+          provider: "openrouter",
+          model: model,
+          traceId: analyticsTracking.traceId,
+          input: messages.map((m) => m.content).join("\n").substring(0, 1000), // Limit input size for errors
+          latency: errorLatencyMs,
+          success: false,
+          error: {
+            message: error.message || error.toString(),
+            type: error.name || "Error",
+            code: error.code || error.type || "unknown",
+            status: error.status || 500,
+            stack: error.stack ? error.stack.split("\n").slice(0, 5).join("\n") : undefined,
+          },
+          groups: analyticsTracking.groups,
+          sku: analyticsOptions.sku,
+          uid: analyticsOptions.uid,
+          graphId: analyticsOptions.graphId,
+          promptId: analyticsOptions.promptId,
+        };
+
+        await captureEvent("llm_generation", errorProperties, analyticsTracking.distinctId);
+        await flushAnalytics();
+      }
 
       // Check if this is a network error
       const isNetworkError =
@@ -305,10 +377,12 @@ class OpenRouterClient {
    * @param {string} params.model - Model to use
    * @param {Object} [params.options] - Additional options (temperature, max_tokens, etc.)
    * @param {OpenRouterMockResponse} [params.mockResponse] - Mock response to use (only in mock mode)
+   * @param {Object} [params.analyticsOptions] - Analytics options for tracking
    * @return {Promise<Object>} - Response object
    */
   async chatCompletion(params) {
-    const {messages, model, options = {}, mockResponse} = params;
+    const {messages, model, options = {}, mockResponse, analyticsOptions = null} = params;
+    const startTime = Date.now(); // Track request start time
 
     try {
       const requestParams = {
@@ -323,14 +397,72 @@ class OpenRouterClient {
       };
 
       // Use mock API if in mock mode and mockResponse provided
+      let result;
       if (this.isMockMode && mockResponse) {
-        return await mockApiCall(requestParams, false, mockResponse);
+        result = await mockApiCall(requestParams, false, mockResponse);
       } else if (this.isMockMode && !mockResponse) {
         throw new Error("Mock mode is enabled but no mockResponse provided. Please provide an OpenRouterMockResponse instance.");
       } else {
-        return await this._apiCaller(requestParams, false, mockResponse);
+        result = await this._apiCaller(requestParams, false, mockResponse);
       }
+
+      // Track analytics if analyticsOptions provided
+      if (analyticsOptions) {
+        const latencyMs = Date.now() - startTime;
+        const eventProperties = {
+          provider: "openrouter",
+          model: result.model || model,
+          traceId: analyticsOptions.traceId,
+          input: messages.map((m) => m.content).join("\n"),
+          output: result.choices?.map((choice) => ({
+            role: choice.message?.role || "assistant",
+            content: choice.message?.content || "",
+          })),
+          latency: latencyMs,
+          success: true,
+          cost: result.usage?.total_cost || 0,
+          result: result,
+          groups: analyticsOptions.groups || {},
+          sku: analyticsOptions.sku,
+          uid: analyticsOptions.uid,
+          graphId: analyticsOptions.graphId,
+          promptId: analyticsOptions.promptId,
+        };
+
+        await captureEvent("llm_generation", eventProperties, analyticsOptions.distinctId || "system");
+        await flushAnalytics();
+      }
+
+      return result;
     } catch (error) {
+      // Track error analytics if analyticsOptions provided
+      if (analyticsOptions) {
+        const errorLatencyMs = Date.now() - startTime;
+        const errorProperties = {
+          provider: "openrouter",
+          model: model,
+          traceId: analyticsOptions.traceId,
+          input: messages.map((m) => m.content).join("\n").substring(0, 1000),
+          latency: errorLatencyMs,
+          success: false,
+          error: {
+            message: error.message || error.toString(),
+            type: error.name || "Error",
+            code: error.code || error.type || "unknown",
+            status: error.status || 500,
+            stack: error.stack ? error.stack.split("\n").slice(0, 5).join("\n") : undefined,
+          },
+          groups: analyticsOptions.groups || {},
+          sku: analyticsOptions.sku,
+          uid: analyticsOptions.uid,
+          graphId: analyticsOptions.graphId,
+          promptId: analyticsOptions.promptId,
+        };
+
+        await captureEvent("llm_generation", errorProperties, analyticsOptions.distinctId || "system");
+        await flushAnalytics();
+      }
+
       logger.error("Error in chat completion:", error);
       throw error;
     }

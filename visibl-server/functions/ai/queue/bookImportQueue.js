@@ -8,6 +8,8 @@ import {QUEUE_RETRY_LIMIT} from "./config.js";
 import {createRateLimiter} from "../../storage/realtimeDb/rateLimiter.js";
 import logger from "../../util/logger.js";
 import {generateTranscriptions} from "../transcribe/transcriber.js";
+import {getInstance as getAnalytics} from "../../analytics/bookPipelineAnalytics.js";
+import {catalogueGetRtdb} from "../../storage/realtimeDb/catalogue.js";
 
 const bookImportRateLimiter = createRateLimiter({
   serviceName: "book-import",
@@ -77,6 +79,28 @@ class BookImportQueue extends AiQueue {
 
     logger.info(`BookImportQueue: Processing M4B transcription for uid: ${uid}, sku: ${sku}`);
 
+    // Track book import started
+    const analytics = getAnalytics();
+    if (analytics) {
+      try {
+        // Get book metadata for analytics
+        const catalogueItem = await catalogueGetRtdb({sku});
+        const bookTitle = catalogueItem?.metadata?.title || catalogueItem?.title || "Unknown";
+        const bookAuthor = catalogueItem?.metadata?.author || catalogueItem?.author || "Unknown";
+
+        await analytics.trackBookImportStarted({
+          uid,
+          sku,
+          bookTitle,
+          bookAuthor,
+          source: entry.params.source || "queue",
+          entryType: entry.params.entryType || "bookImport",
+        });
+      } catch (analyticsError) {
+        logger.warn(`Failed to track book import start: ${analyticsError.message}`);
+      }
+    }
+
     try {
       // Call generateTranscriptions with the same parameters used by generateM4BTranscriptions
       const result = await generateTranscriptions({
@@ -101,6 +125,26 @@ class BookImportQueue extends AiQueue {
     } catch (error) {
       const retryCount = entry.retryCount || 0;
       const retryLimit = this.retryLimit;
+
+      // Track failure
+      if (analytics) {
+        try {
+          await analytics.trackPipelineFailure({
+            uid,
+            sku,
+            stage: "book_import",
+            error,
+            metadata: {
+              retryCount,
+              retryLimit,
+              entryId: entry.id,
+            },
+          });
+        } catch (analyticsError) {
+          logger.warn(`Failed to track book import failure: ${analyticsError.message}`);
+        }
+      }
+
       if (retryCount >= retryLimit) {
         logger.critical(`CRITICAL BookImportQueue: ${sku} for ${uid} failed final attempt ${retryCount + 1} of ${retryLimit} processing entry ${entry.id}: ${error.message}`);
         throw error;

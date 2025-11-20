@@ -7,6 +7,7 @@ import {promptListFromParamsList, messagesFromPromptListAndTextList, flattenResu
 import {OPENAI_API_KEY, MOCK_LLM} from "../../config/config.js";
 import {batchDispatchOpenaiRequests} from "../queue/dispatcher.js";
 import {mockApiCall, OpenAIMockResponse} from "./mock.js";
+import {captureEvent, flushAnalytics} from "../../analytics/index.js";
 
 function instructionReplacements({instruction, replacements}) {
   if (replacements) {
@@ -18,9 +19,11 @@ function instructionReplacements({instruction, replacements}) {
 }
 
 async function openaiLLMRequest(request) {
+  const startTime = Date.now(); // Track request start time for latency calculation
+
   // WARN: Does not correctly implement history!
   // eslint-disable-next-line no-unused-vars
-  const {prompt, message, replacements, history = [], retry = true, instructionOverride, responseKey, modelOverride, promptOverride, mockResponse} = request;
+  const {prompt, message, replacements, history = [], retry = true, instructionOverride, responseKey, modelOverride, promptOverride, mockResponse, analyticsOptions = null} = request;
   const globalPrompt = promptOverride || globalPrompts[prompt]; // Use promptOverride if provided, otherwise lookup
 
   if (!globalPrompt) {
@@ -47,6 +50,14 @@ async function openaiLLMRequest(request) {
 
   logger.debug(`Sending request to OpenAI model ${model} via responses.create.`);
   logger.debug(`Instruction: ${instruction.substring(0, 600)}`);
+
+  // Store analytics tracking parameters for later use
+  const analyticsTracking = analyticsOptions ? {
+    distinctId: analyticsOptions.distinctId || "system",
+    traceId: analyticsOptions.traceId,
+    groups: analyticsOptions.groups || {},
+  } : null;
+
   let result;
 
   // Check if we're in mock mode
@@ -90,6 +101,41 @@ async function openaiLLMRequest(request) {
       result = await openai.responses.create(params);
     } catch (error) {
       logger.error("Error sending message to OpenAI via responses.create:", error);
+      const errorLatencyMs = Date.now() - startTime; // Calculate latency even for errors
+
+      // Capture error analytics event
+      if (analyticsOptions) {
+        const messages = [
+          {role: "system", content: instruction},
+          ...history,
+          {role: "user", content: message},
+        ];
+
+        const errorProperties = {
+          provider: "openai",
+          model: model,
+          traceId: analyticsTracking?.traceId,
+          input: messages.map((m) => m.content).join("\n").substring(0, 1000), // Limit input size for errors
+          latency: errorLatencyMs,
+          success: false,
+          error: {
+            message: error.message || error.toString(),
+            type: error.name || "Error",
+            code: error.code || error.type || "unknown",
+            status: error.status || 500,
+            stack: error.stack ? error.stack.split("\n").slice(0, 5).join("\n") : undefined,
+          },
+          groups: analyticsTracking?.groups,
+          sku: analyticsOptions.sku,
+          uid: analyticsOptions.uid,
+          graphId: analyticsOptions.graphId,
+          promptId: analyticsOptions.promptId,
+        };
+
+        await captureEvent("llm_generation", errorProperties, analyticsTracking?.distinctId || "system");
+        await flushAnalytics();
+      }
+
       if (retry && (error.status === 429 || error.status >= 500)) {
         logger.warn(`OpenAI API error (${error.status}). Waiting 10 seconds before retrying.`);
         await new Promise((resolve) => setTimeout(resolve, 10000));
@@ -105,9 +151,43 @@ async function openaiLLMRequest(request) {
 
   try {
     responseText = result.output_text;
+    const latencyMs = Date.now() - startTime; // Calculate actual latency
 
     logger.debug(`OpenAI response received.`);
     logger.debug(responseText.substring(0, 150));
+
+    // Capture analytics event for successful request
+    if (analyticsOptions) {
+      const messages = [
+        {role: "system", content: instruction},
+        ...history,
+        {role: "user", content: message},
+      ];
+
+      const eventProperties = {
+        provider: "openai",
+        model: result.model || model,
+        traceId: analyticsTracking.traceId,
+        input: messages.map((m) => m.content).join("\n"),
+        output: [{
+          role: "assistant",
+          content: responseText,
+        }],
+        latency: latencyMs,
+        success: true,
+        cost: result.usage?.total_cost, // OpenAI may not provide this
+        result: result, // Pass full result for detailed extraction
+        groups: analyticsTracking.groups,
+        sku: analyticsOptions.sku,
+        uid: analyticsOptions.uid,
+        graphId: analyticsOptions.graphId,
+        promptId: analyticsOptions.promptId,
+      };
+
+      logger.debug(`Analytics: Capturing event for model ${eventProperties.model}, tokens: ${result.usage?.total_tokens}, provider: ${eventProperties.provider}`);
+      await captureEvent("llm_generation", eventProperties, analyticsTracking.distinctId);
+      await flushAnalytics();
+    }
   } catch (e) {
     logger.error("Error processing OpenAI response (output_text):", e);
     logger.debug("Full OpenAI Response object:", result);

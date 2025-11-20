@@ -5,6 +5,7 @@ import {catalogueGetRtdb} from "../../../storage/realtimeDb/catalogue.js";
 import {getGraphFirestore} from "../../../storage/firestore/graph.js";
 import GraphPipelineFactory from "../../GraphPipelineFactory.js";
 import {findNextChapterOverDuration} from "../../../util/graphHelper.js";
+import {getInstance as getAnalytics} from "../../../analytics/bookPipelineAnalytics.js";
 
 /**
  * Handles chapter progress changes and triggers graph generation for the next chapter
@@ -106,6 +107,17 @@ export async function handleChapterProgress({
         endChapter,
       },
       deadline: 60 * 1, // 1 hour deadline
+    });
+
+    const analytics = getAnalytics();
+    await analytics.trackGraphGenerationStarted({
+      uid,
+      sku,
+      graphId,
+      version: "v0.1",
+      generationType: "incremental",
+      startChapter,
+      endChapter,
     });
 
     logger.info(`${graphId} Successfully dispatched graph pipeline for chapters ${startChapter} to ${endChapter}`);

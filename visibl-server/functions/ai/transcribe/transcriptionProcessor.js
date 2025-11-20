@@ -14,7 +14,7 @@ import {mergeChunkTranscriptions, validateTimingContinuity} from "../../audio/au
  * @param {string} sku - Book SKU for progress tracking
  * @return {Object} Transcriptions object with chapter indices as keys
  */
-async function transcribeChapters({bookData, outputStreams, chapterToChunksMap, chunkPlan, chunkFiles, sku}) {
+async function transcribeChapters({bookData, outputStreams, chapterToChunksMap, chunkPlan, chunkFiles, sku, uid}) {
   const transcriptions = {};
   const totalChunks = outputStreams.length;
   let completedChunks = 0;
@@ -59,6 +59,12 @@ async function transcribeChapters({bookData, outputStreams, chapterToChunksMap, 
               chapter: chunkFile,
               offset: chunk.absoluteStartTime, // Use absolute time for correct timing
               prompt,
+              distinctId: uid,
+              traceId: `${sku}-ch${chapterIndex}-chunk${chunkIndex}`,
+              posthogGroups: {
+                sku: sku,
+                uid: uid,
+              },
             });
             const elapsedTime = Date.now() - startTime;
             return {transcription, elapsedTime};

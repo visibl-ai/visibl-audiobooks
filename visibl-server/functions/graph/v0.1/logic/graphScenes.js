@@ -1,4 +1,5 @@
 import logger from "../../../util/logger.js";
+import {createAnalyticsOptions} from "../../../analytics/index.js";
 import {getTranscriptions, getGraph, storeGraph} from "../../../storage/storage.js";
 import {catalogueGetRtdb} from "../../../storage/realtimeDb/catalogue.js";
 import {getChapterDuration} from "../../../util/graphHelper.js";
@@ -274,6 +275,7 @@ async function graphScenes(params) {
           },
         ],
         mockResponse: mockSceneResponse({currentChunkIndex, attemptNumber, chunkStartTime, chunkEndTime, chunkDuration}),
+        analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_generate_scenes"}),
       }).then((result) => {
         logger.debug(`${graphId} ${chapter} Processed scene chunk ${currentChunkIndex + 1} for chapter ${chapter} (attempt ${attemptNumber})`);
 
