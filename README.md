@@ -1,4 +1,4 @@
-# <a href="https://visibl.ai"><img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/e2f040dd-3dda-408b-e767-b5c02ed1ec00/thumb" alt="Visibl" width="32" height="32" style="vertical-align: middle;"> visibl.ai - One Shot Book to Movie</a>
+# <a href="https://visibl.ai"><img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/e2f040dd-3dda-408b-e767-b5c02ed1ec00/thumb" alt="Visibl" width="32" height="32" style="vertical-align: middle;"> visibl.ai - One Shot Book to Graphic Novel</a>
 <p align="center">
   <strong>Transform fiction novels into user guided visual narratives</strong>
 </p>
@@ -47,7 +47,7 @@ But the stories themselves aren't the problem - it's the medium. People still cr
 
 Visibl is a pipeline that converts any fiction novel into a synchronized audio-visual experience in real-time. No human intervention, no production costs - just automated scene generation from text.
 
-Think of it as a compiler that takes a novel as input and outputs a movie.
+Think of it as a compiler that takes a novel as input and outputs a Graphic Novel.
 
 ---
 
