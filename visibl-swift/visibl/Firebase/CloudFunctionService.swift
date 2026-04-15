@@ -59,7 +59,8 @@ final class CloudFunctionService {
         }
     }
     
-    public func makeAuthCallWithOutReturn(includeRawData: Bool = false, functionName: String, with data: Any? = nil) async throws {
+    public func makeAuthCallWithOutReturn(
+        includeRawData: Bool = false, functionName: String, with data: Any? = nil) async throws {
         guard checkUserAuthentication() else {
             throw NSError(
                 domain: "FirebaseService",

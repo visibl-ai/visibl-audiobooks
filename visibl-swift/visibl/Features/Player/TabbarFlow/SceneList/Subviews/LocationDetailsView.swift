@@ -40,7 +40,7 @@ struct LocationDetailsView: View {
                 }
             )
             .onTapGesture {
-                HapticFeedback.shared.trigger(style: .soft)
+                HapticFeedback.trigger(style: .soft)
                 resetState()
             }
             .onAppear {

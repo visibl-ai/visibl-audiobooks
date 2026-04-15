@@ -30,7 +30,7 @@ struct BookListCell: View {
     
     // MARK: - Graph Related
     
-    var isAAXready: Bool { !audiobook.isAAX || audiobook.isDownloaded }
+    var isAAXready: Bool { audiobook.sourceType != .aax || audiobook.isDownloaded }
     var isGraphReady: Bool { audiobook.publication.graphProgress?.progress == 100 }
     
     init(
@@ -60,7 +60,7 @@ struct BookListCell: View {
             newLabel
         }
         .onTapGesture {
-            HapticFeedback.shared.trigger(style: .soft)
+            HapticFeedback.trigger(style: .soft)
             action()
         }
     }

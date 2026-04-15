@@ -12,9 +12,7 @@ import AAXCPlayer
 
 @MainActor
 final class MyLibraryViewModel: ObservableObject {
-    private let catalogueObserver: CatalogueObserver
     private let userLibraryObserver: UserLibraryObserver
-    private let aaxCatalogueObserver: AAXCatalogueObserver
     private let player: AudioPlayerManager
     private let aaxClient: AAXClientWrapper
     private let rtdbManager = RTDBManager.shared
@@ -63,21 +61,17 @@ final class MyLibraryViewModel: ObservableObject {
     }
 
     init(
-        catalogueObserver: CatalogueObserver,
         userLibraryObserver: UserLibraryObserver,
-        aaxCatalogueObserver: AAXCatalogueObserver,
         player: AudioPlayerManager,
         aaxClient: AAXClientWrapper,
         aaxPipeline: AAXPipeline
     ) {
-        self.catalogueObserver = catalogueObserver
         self.userLibraryObserver = userLibraryObserver
-        self.aaxCatalogueObserver = aaxCatalogueObserver
         self.player = player
         self.aaxClient = aaxClient
         self.aaxPipeline = aaxPipeline
         bind()
-        updateAudiobooks()
+        updateAudiobooks(userLibraryObserver.audiobooks)
 
         // Set up callback for download state changes
         aaxPipeline.onDownloadStateChanged = { [weak self] isDownloading in
@@ -93,24 +87,10 @@ final class MyLibraryViewModel: ObservableObject {
 
 extension MyLibraryViewModel {
     private func bind() {
-        catalogueObserver.objectWillChange
+        userLibraryObserver.$audiobooks
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.updateAudiobooks()
-            }
-            .store(in: &cancellables)
-        
-        userLibraryObserver.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.updateAudiobooks()
-            }
-            .store(in: &cancellables)
-        
-        aaxCatalogueObserver.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.updateAudiobooks()
+            .sink { [weak self] audiobooks in
+                self?.updateAudiobooks(audiobooks)
             }
             .store(in: &cancellables)
         
@@ -133,26 +113,16 @@ extension MyLibraryViewModel {
 //            .store(in: &cancellables)
 
     }
-    
-    private func updateAudiobooks() {
-        // let previousCount = _audiobooks.count
+
+    private func updateAudiobooks(_ incomingAudiobooks: [AudiobookModel]) {
         let previousIDs = Set(_audiobooks.map { $0.id })
         
-        _audiobooks = AudiobookModel.composeAudiobooks(
-            from: aaxCatalogueObserver.publications,
-            and: userLibraryObserver.libraryItems
-        ) + AudiobookModel.composeAudiobooks(
-            from: catalogueObserver.publications,
-            and: userLibraryObserver.libraryItems
-        )
+        _audiobooks = incomingAudiobooks
         
-        // let newCount = _audiobooks.count
         let currentIDs = Set(_audiobooks.map { $0.id })
         let addedIDs = currentIDs.subtracting(previousIDs)
         
         if !addedIDs.isEmpty {
-            // print("📚 New books added: \(addedIDs)")
-            // Handle new book logic here - maybe show a notification?
             for id in addedIDs {
                 if let newBook = _audiobooks.first(where: { $0.id == id }) {
                     print("New book: \(newBook.title)")
@@ -161,12 +131,10 @@ extension MyLibraryViewModel {
                 }
             }
         }
-
+        
         for audiobook in _audiobooks {
             setCarouselList(audiobook)
         }
-
-        // print("updateAudiobooks triggered - books: \(previousCount) → \(newCount)")
     }
 }
 
@@ -251,7 +219,7 @@ extension MyLibraryViewModel {
     }
     
     func validateAndUpdateVoucher(_ audiobook: AudiobookModel) async {
-        if !audiobook.isAAX {
+        if audiobook.sourceType != .aax {
             updateVoucherValidity(for: audiobook.id, isValid: true)
             return
         }

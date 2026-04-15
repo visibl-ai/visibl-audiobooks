@@ -18,7 +18,7 @@ struct PlaybackSlider: View {
             Color.white.opacity(0.001)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onTapGesture {
-                    HapticFeedback.shared.trigger(style: .medium)
+                    HapticFeedback.trigger(style: .medium)
                     
                     withAnimation {
                         playerCoordinator.selectedTab = .bookInfo

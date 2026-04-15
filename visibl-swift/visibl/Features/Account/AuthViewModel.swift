@@ -47,6 +47,7 @@ final class AuthViewModel: ObservableObject {
                 withAnimation(.easeInOut) { isLoading = true }
                 try await authService.signInWithEmail(email: email, password: password)
                 try await mergeAnonymousUser()
+                NotificationPermissionManager.shared.requestPermissionIfNeeded()
                 withAnimation(.easeInOut(duration: 0.25)) { authState = .profile }
                 withAnimation(.easeInOut) { isLoading = false }
                 Toastify.show(style: .success, message: "toast_successfully_signed_in_with_email".localized)
@@ -66,6 +67,7 @@ final class AuthViewModel: ObservableObject {
                 withAnimation(.easeInOut) { isLoading = true }
                 try await authService.signUpWithEmail(email: email, password: password, confirmPassword: confirmPassword)
                 try await mergeAnonymousUser()
+                NotificationPermissionManager.shared.requestPermissionIfNeeded()
                 withAnimation(.easeInOut(duration: 0.25)) { authState = .profile }
                 withAnimation(.easeInOut) { isLoading = false }
                 Toastify.show(style: .success, message: "toast_successfully_signed_up_with_email".localized)
@@ -89,6 +91,7 @@ final class AuthViewModel: ObservableObject {
                     accessToken: googleResult.accessToken
                 )
                 try await mergeAnonymousUser()
+                NotificationPermissionManager.shared.requestPermissionIfNeeded()
                 withAnimation(.easeInOut(duration: 0.25)) { authState = .profile }
                 withAnimation(.easeInOut) { isLoading = false }
                 Toastify.show(style: .success, message: "toast_successfully_signed_in_with_google".localized)
@@ -108,6 +111,7 @@ final class AuthViewModel: ObservableObject {
                 let appleResult = try await signInApple.startSignInWithAppleFlow()
                 try await authService.signInWithApple(idToken: appleResult.idToken)
                 try await mergeAnonymousUser()
+                NotificationPermissionManager.shared.requestPermissionIfNeeded()
                 withAnimation(.easeInOut(duration: 0.25)) { authState = .profile }
                 withAnimation(.easeInOut) { isLoading = false }
                 Toastify.show(style: .success, message: "toast_successfully_signed_in_with_apple".localized)

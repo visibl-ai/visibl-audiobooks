@@ -18,6 +18,8 @@ enum AppleSignInError: LocalizedError {
     case credentialExport  // 2001
     case credentialImport  // 2002
     case matchedExcludedCredential // 2003
+    case preferSignInWithApple
+    case deviceNotConfiguredForPasskeyCreation
 
     init?(asAuthorizationError error: Error) {
         let ns = error as NSError
@@ -44,6 +46,10 @@ enum AppleSignInError: LocalizedError {
             self = .credentialImport
         case .matchedExcludedCredential:
             self = .matchedExcludedCredential
+        case .preferSignInWithApple:
+            self = .preferSignInWithApple
+        case .deviceNotConfiguredForPasskeyCreation:
+            self = .deviceNotConfiguredForPasskeyCreation
         @unknown default:
             self = .unknown
         }
@@ -69,6 +75,10 @@ enum AppleSignInError: LocalizedError {
             return "apple_sign_in_error_credential_import".localized
         case .matchedExcludedCredential:
             return "apple_sign_in_error_excluded_credential".localized
+        case .preferSignInWithApple:
+            return "apple_sign_in_error_unknown".localized
+        case .deviceNotConfiguredForPasskeyCreation:
+            return "apple_sign_in_error_unknown".localized
         }
     }
 }

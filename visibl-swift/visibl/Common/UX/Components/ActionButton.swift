@@ -24,7 +24,7 @@ struct ActionButton: View {
     
     var body: some View {
         Button(action: {
-            HapticFeedback.shared.trigger(style: .medium)
+            HapticFeedback.trigger(style: .medium)
             action()
         }) {
             HStack(spacing: 12) {

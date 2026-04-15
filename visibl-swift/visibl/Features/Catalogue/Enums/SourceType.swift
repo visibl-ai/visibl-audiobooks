@@ -8,15 +8,15 @@
 import Foundation
 
 enum SourceType: String, Identifiable, CaseIterable, CustomStringConvertible {
-    case visibl
-    case aax
-    
+    case visibl, aax, uploaded
+
     var id: Self { self }
-    
+
     var description: String {
         switch self {
         case .visibl: return "catalogue_source_type_visibl".localized
-        case .aax: return "catalogue_source_type_aac".localized
+        case .aax: return "catalogue_source_type_aax".localized
+        case .uploaded: return "catalogue_source_type_uploaded".localized
         }
     }
 }

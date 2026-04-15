@@ -13,10 +13,10 @@ import FirebaseDatabase
 struct VisiblApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appCoordinator = AppCoordinator()
-    @ObservedObject private var networkManager = NetworkManager.shared
+    private let networkManager = NetworkManager.shared
     @StateObject private var testEnvironment = TestEnvironment()
     private let diContainer: DIContainer
-    
+
     init() {
         diContainer = DIContainer()
         configureNavigationBarAppearance()
@@ -35,6 +35,7 @@ struct VisiblApp: App {
                 networkManager.startMonitoring()
                 diContainer.aaxClient.checkAuthenticationStatus()
                 applyAppearance()
+                checkNotificationPermissionsForLoggedInUser()
             }
             .task {
                 if CommandLine.arguments.contains("--uitesting") {
@@ -55,6 +56,18 @@ extension VisiblApp {
             try await diContainer.authService.signInAnonymously()
         } catch {
             print(error.localizedDescription)
+        }
+    }
+
+    /// Check if user is already logged in and request notification permissions if needed
+    /// This handles existing users who upgrade to the new version
+    /// Also ensures we register for remote notifications on every launch if authorized
+    private func checkNotificationPermissionsForLoggedInUser() {
+        // If user is signed in (not anonymous), request permission if we haven't already
+        if diContainer.authService.isUserSignedIn() {
+            // This will: 1) Ask for permission if not yet asked, OR 2) Register if already authorized
+            // The second case handles users who enabled notifications in Settings after denying
+            NotificationPermissionManager.shared.requestPermissionIfNeeded()
         }
     }
 }

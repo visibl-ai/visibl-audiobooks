@@ -20,7 +20,7 @@ final class CloudStorageManager: ObservableObject {
         onProgress: ((Double) -> Void)? = nil
     ) async throws -> URL {
         let storageRef = storage.reference().child(path)
-        
+
         _ = try await storageRef.putFileAsync(
             from: fileURL,
             metadata: metadata,
@@ -30,8 +30,46 @@ final class CloudStorageManager: ObservableObject {
                 onProgress?(percentage)
             }
         )
-        
+
         return try await storageRef.downloadURL()
+    }
+
+    /// Upload file with cancellation support
+    /// - Returns: StorageUploadTask that can be cancelled
+    func uploadFile(
+        from fileURL: URL,
+        to path: String,
+        metadata: StorageMetadata? = nil,
+        onProgress: ((Double) -> Void)? = nil,
+        completion: @escaping (Result<URL, Error>) -> Void
+    ) -> StorageUploadTask {
+        let storageRef = storage.reference().child(path)
+
+        let uploadTask = storageRef.putFile(from: fileURL, metadata: metadata)
+
+        uploadTask.observe(.progress) { snapshot in
+            guard let progress = snapshot.progress else { return }
+            let percentage = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
+            onProgress?(percentage)
+        }
+
+        uploadTask.observe(.success) { _ in
+            storageRef.downloadURL { url, error in
+                if let error {
+                    completion(.failure(error))
+                } else if let url {
+                    completion(.success(url))
+                }
+            }
+        }
+
+        uploadTask.observe(.failure) { snapshot in
+            if let error = snapshot.error {
+                completion(.failure(error))
+            }
+        }
+
+        return uploadTask
     }
     
     func checkFileExists(at path: String) async throws -> URL? {

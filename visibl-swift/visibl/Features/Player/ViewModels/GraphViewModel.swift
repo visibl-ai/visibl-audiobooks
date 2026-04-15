@@ -14,29 +14,39 @@ final class GraphViewModel: ObservableObject {
     @Published var graphData: GraphDataModel?
     
     private let player: AudioPlayerManager
+    private let userLibraryObserver: UserLibraryObserver
     private var cancellables = Set<AnyCancellable>()
     private let databaseManager = RTDBManager.shared
     
     private var graphHandle: DatabaseHandle?
     private var currentGraphPath: String?
     
-    init(audiobook: AudiobookModel, player: AudioPlayerManager) {
+    init(
+        audiobook: AudiobookModel,
+        player: AudioPlayerManager,
+        userLibraryObserver: UserLibraryObserver
+    ) {
         self.audiobook = audiobook
         self.player = player
+        self.userLibraryObserver = userLibraryObserver
         bind()
     }
 }
 
 extension GraphViewModel {
     private func bind() {
-        player.$audiobook
-            .compactMap { $0?.playbackInfo.currentResourceIndex }
-            .removeDuplicates()
+        // Subscribe once on init - graph ID doesn't change per chapter
+        subscribeForGraph()
+
+        userLibraryObserver.$audiobooks
+            .compactMap { [weak self] audiobooks -> AudiobookModel? in
+                guard let id = self?.audiobook.id else { return nil }
+                return audiobooks.first { $0.id == id }
+            }
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
+            .sink { [weak self] updated in
                 guard let self = self else { return }
-                self.unsubscribeFromGraph()
-                self.subscribeForGraph()
+                self.audiobook = updated
             }
             .store(in: &cancellables)
     }
@@ -48,10 +58,16 @@ extension GraphViewModel {
             print("No default graph ID found for \(audiobook.id)")
             return
         }
-        
+
         let path = "graphs/\(graphId)"
+
+        // Skip if already subscribed to the same path
+        if currentGraphPath == path && graphHandle != nil {
+            return
+        }
+
         currentGraphPath = path
-        
+
         // Observe the GraphData structure
         graphHandle = databaseManager.observeSingleObject(
             at: path,

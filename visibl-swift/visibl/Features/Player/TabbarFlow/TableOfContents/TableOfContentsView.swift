@@ -51,7 +51,7 @@ struct TableOfContentsView: View {
                             return
                         }
 
-                        HapticFeedback.shared.trigger(style: .light)
+                        HapticFeedback.trigger(style: .light)
                         viewModel.pause()
                         viewModel.playAudio(at: index)
                         dismiss()

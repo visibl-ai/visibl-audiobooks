@@ -12,7 +12,7 @@ struct MainActionButton: View {
     
     var body: some View {
         Button(action: {
-            HapticFeedback.shared.trigger(style: .medium)
+            HapticFeedback.trigger(style: .medium)
             action()
         }) {
             if #available(iOS 26.0, *) {

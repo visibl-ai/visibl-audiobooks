@@ -13,7 +13,7 @@ final class AudiobookModel: Identifiable {
     var userLibraryItem: UserLibraryItemModel
     
     // Metadata
-    var coverURL: String { publication.coverArtUrl }
+    var coverURL: String { publication.coverArtUrl ?? "" }
     var title: String { publication.title }
     var authors: [String] { publication.availableAuthors }
     var duration: Double { publication.metadata?.duration ?? 0.0 } /// TODO: handle nil and fetch duration from file metadata
@@ -62,7 +62,7 @@ final class AudiobookModel: Identifiable {
 extension AudiobookModel {
     var isPlayable: Bool {
         if hasGraph { return true }
-        if isAAX {
+        if sourceType == .aax {
             let chapters = userLibraryItem.content?.chapters?.compactMap { $0 } ?? []
             let readingOrderChapters = publication.metadata?.chapters ?? []
             var totalDuration: Double = 0
@@ -106,6 +106,22 @@ extension AudiobookModel {
         let progressString = "\(completedChapters)/\(totalChapters)"
         
         return progressString
+    }
+}
+
+// MARK: - Source Type
+
+extension AudiobookModel {
+    private static let uploadedPrefix = "CSTM_"
+
+    var sourceType: SourceType {
+        if id.hasPrefix(Self.uploadedPrefix) {
+            return .uploaded
+        } else if publication.visibility == .public {
+            return .visibl
+        } else {
+            return .aax
+        }
     }
 }
 

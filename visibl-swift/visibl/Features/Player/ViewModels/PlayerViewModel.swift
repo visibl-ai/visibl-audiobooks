@@ -22,6 +22,7 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: - Dependencies
 
+    private let userLibraryObserver: UserLibraryObserver
     private let player: AudioPlayerManager
     private var subscriptions = Set<AnyCancellable>()
     private let databaseManager = RTDBManager.shared
@@ -37,30 +38,15 @@ final class PlayerViewModel: ObservableObject {
     init(
         player: AudioPlayerManager,
         authService: AuthServiceProtocol,
-        audiobook: AudiobookModel
+        audiobook: AudiobookModel,
+        userLibraryObserver: UserLibraryObserver
     ) {
         self.player = player
         self.authService = authService
         self.audiobook = audiobook
+        self.userLibraryObserver = userLibraryObserver
         if player.audiobook != audiobook { Task { await player.setupPlayer(with: audiobook) } }
         bind()
-        setupGraphProgressObserver()
-    }
-
-    private func setupGraphProgressObserver() {
-        NotificationCenter.default.addObserver(
-            forName: .graphProgressDidUpdate,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self = self,
-                  let updatedPublication = notification.object as? PublicationModel,
-                  updatedPublication.id == self.audiobook.publication.id else {
-                return
-            }
-            self.audiobook.publication = updatedPublication
-            self.objectWillChange.send()
-        }
     }
 }
 
@@ -68,6 +54,17 @@ final class PlayerViewModel: ObservableObject {
 
 extension PlayerViewModel {
     private func bind() {
+        userLibraryObserver.$audiobooks
+            .compactMap { [weak self] audiobooks -> AudiobookModel? in
+                guard let id = self?.audiobook.id else { return nil }
+                return audiobooks.first { $0.id == id }
+            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] updated in
+                self?.applyUpdatedAudiobook(updated)
+            }
+            .store(in: &subscriptions)
+        
         player.$playerState
             .receive(on: DispatchQueue.main)
             .sink { [weak self] playerState in
@@ -154,3 +151,20 @@ extension PlayerViewModel {
     }
 }
 
+private extension PlayerViewModel {
+    func applyUpdatedAudiobook(_ updated: AudiobookModel) {
+        // Preserve local playback state - don't overwrite with stale Firebase data
+        if let currentPlayerAudiobook = player.audiobook, currentPlayerAudiobook.id == updated.id {
+            // Keep the player's currentResourceIndex as source of truth
+            let localResourceIndex = currentPlayerAudiobook.playbackInfo.currentResourceIndex
+            let localProgress = currentPlayerAudiobook.playbackInfo.progressInCurrentResource
+
+            // Update with remote data but preserve local playback position
+            updated.userLibraryItem.clientData.playbackInfo.currentResourceIndex = localResourceIndex
+            updated.userLibraryItem.clientData.playbackInfo.progressInCurrentResource = localProgress
+
+            player.audiobook = updated
+        }
+        audiobook = updated
+    }
+}

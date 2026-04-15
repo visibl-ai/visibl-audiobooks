@@ -115,7 +115,7 @@ struct PlayerTabBar: View {
             .foregroundColor(isSelected ? .white : .gray)
             .frame(maxWidth: .infinity)
             .onTapGesture {
-                HapticFeedback.shared.trigger(style: .medium)
+                HapticFeedback.trigger(style: .medium)
                 
                 action()
             }

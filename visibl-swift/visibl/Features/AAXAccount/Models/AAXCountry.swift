@@ -63,4 +63,11 @@ enum AAXCountry: String, CaseIterable, Identifiable {
     var localizedName: String {
         return self.name.localized
     }
+
+    static func flag(for countryCode: String) -> String {
+        guard let country = AAXCountry.allCases.first(where: { $0.requestString == countryCode.lowercased() }) else {
+            return "🏳️"
+        }
+        return country.flag
+    }
 }

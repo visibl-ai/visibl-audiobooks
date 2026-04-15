@@ -25,7 +25,7 @@ extension Coordinator {
 }
 
 enum NavigationDestination: Hashable, Equatable, Identifiable {
-    case publicationDetails(PublicationModel)
+    case publicationDetails(publication: PublicationPreviewModel)
     
     var id: String {
         switch self {
@@ -73,7 +73,8 @@ enum ModalDestination: Identifiable {
     case aaxSignIn(onSuccess: (() -> Void)? = nil)
     case appAppearance
     case sendMail(String)
-    
+    case importOptions
+
     var id: String {
         switch self {
         case .player: return "player"
@@ -82,6 +83,7 @@ enum ModalDestination: Identifiable {
         case .aaxSignIn: return "aaxSignIn"
         case .appAppearance: return "appAppearance"
         case .sendMail: return "sendMail"
+        case .importOptions: return "importOptions"
         }
     }
 }
@@ -96,16 +98,20 @@ class AppCoordinator: ObservableObject {
     @Published var activeSheet: ModalDestination?
     @Published var activeFullScreenCover: ModalDestination?
     
+    private lazy var _myLibraryCoordinator: Coordinator = TabCoordinator(appCoordinator: self, tabItem: .myLibrary)
+    private lazy var _catalogueCoordinator: Coordinator = TabCoordinator(appCoordinator: self, tabItem: .catalogue)
+    private lazy var _settingsCoordinator: Coordinator = TabCoordinator(appCoordinator: self, tabItem: .settings)
+
     func makeMyLibraryCoordinator() -> Coordinator {
-        return TabCoordinator(appCoordinator: self, tabItem: .myLibrary)
+        return _myLibraryCoordinator
     }
-    
+
     func makeCatalogueCoordinator() -> Coordinator {
-        return TabCoordinator(appCoordinator: self, tabItem: .catalogue)
+        return _catalogueCoordinator
     }
-    
+
     func makeSettingsCoordinator() -> Coordinator {
-        return TabCoordinator(appCoordinator: self, tabItem: .settings)
+        return _settingsCoordinator
     }
     
     func selectTab(_ tab: Tab, action: (() -> Void)? = nil) {

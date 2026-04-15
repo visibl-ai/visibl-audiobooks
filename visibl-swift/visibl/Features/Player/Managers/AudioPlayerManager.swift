@@ -86,7 +86,7 @@ final class AudioPlayerManager: ObservableObject {
                 }
             }
             .store(in: &cancellables)
-        
+
         player.timePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] currentTime in
@@ -96,7 +96,7 @@ final class AudioPlayerManager: ObservableObject {
                 self.updateNowPlayingInfo()
             }
             .store(in: &cancellables)
-        
+
         player.durationPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] duration in
@@ -105,7 +105,7 @@ final class AudioPlayerManager: ObservableObject {
                 self.updateNowPlayingInfo()
             }
             .store(in: &cancellables)
-        
+
         player.playbackFinishedPublisher
             .first()
             .sink { [weak self] in
@@ -121,6 +121,8 @@ final class AudioPlayerManager: ObservableObject {
         cancellables.removeAll()
         self.currentTime = nil
         self.audiobook = audiobook
+
+        SceneDataService.shared.subscribeToAudiobook(audiobook)
 
         // Reset URL state for new setup
         self.primaryAudioURL = nil
@@ -139,9 +141,7 @@ final class AudioPlayerManager: ObservableObject {
             self.primaryAudioURL = urlResult.primaryURL
             self.backupAudioURL = urlResult.backupURL
 
-            // Bind BEFORE setup to catch errors during initial load
             updateNowPlayingMetadata()
-            bind()
 
             player.setupWithURL(
                 with: urlResult.primaryURL,
@@ -150,6 +150,9 @@ final class AudioPlayerManager: ObservableObject {
                 playWhenReady: true,
                 seek: currentPosition
             )
+
+            // Bind AFTER setup to avoid catching stale playbackFinished events from previous chapter
+            bind()
 
             // Apply stored playback speed
             player.setPlaybackSpeed(playbackSpeed)
@@ -231,6 +234,7 @@ extension AudioPlayerManager {
         audiobook?.updateBookProgressOnRemote()
         player.stop()
         nowPlayingHandler.clear()
+        SceneDataService.shared.clear()
         audiobook = nil
         artworkImage = nil
         artworkImageSignature = nil
@@ -286,8 +290,10 @@ extension AudioPlayerManager {
             return
         }
 
+        // Stop current playback before advancing to prevent stale audio on load failure
+        player.pause()
         audiobook.updateCurrentResourceIndex(index: nextIndex)
-        pause()
+        audiobook.updateBookProgressOnRemote()
         audiobook.updateProgressInCurrentResouce(currentProgress: 0)
         await setupPlayer(with: audiobook)
     }

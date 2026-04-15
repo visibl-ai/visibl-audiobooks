@@ -64,19 +64,26 @@ struct AAXProfileSection: View {
                     
                     Spacer()
                     
-                    HStack(spacing: 4) {
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.customBlack)
+                    HStack(spacing: 6) {
+                        if let locale = aaxClient.aaxAuthData?.localeCode {
+                            Text(AAXCountry.flag(for: locale))
+                                .font(.system(size: 14))
+                        }
                         
-                        Text(aaxClient.userName)
-                            .font(.system(size: 12, weight: .regular))
-                            .foregroundStyle(.customBlack)
+                        HStack(spacing: 4) {
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.customBlack)
+                            
+                            Text(aaxClient.userName)
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundStyle(.customBlack)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(height: 28)
+                        .background(.customIndigo.opacity(0.25))
+                        .cornerRadius(6)
                     }
-                    .padding(.horizontal, 12)
-                    .frame(height: 28)
-                    .background(.customIndigo.opacity(0.25))
-                    .cornerRadius(6)
                 }
             }
             .padding(.horizontal, 12)
@@ -100,7 +107,7 @@ struct AAXProfileSection: View {
     
     private func connectAAX() {
         Mixpanel.mainInstance().track(event: "aax_connect_button_tapped")
-        HapticFeedback.shared.trigger(style: .light)
+        HapticFeedback.trigger(style: .light)
         
         guard authService.isUserSignedIn() else {
             signInRequiredAlert()
@@ -111,6 +118,7 @@ struct AAXProfileSection: View {
             let onSuccessHandler = {
                 coordinator.selectTab(.catalogue) { coordinator.selectedCatalogueSource = .aax }
             }
+            
             coordinator.presentSheet(.aaxSignIn(onSuccess: onSuccessHandler))
             return
         }
@@ -124,15 +132,16 @@ struct AAXProfileSection: View {
             await aaxClient.disconnect()
             try SDDownloadManagerWrapper.shared.deleteAllFiles()
             player.stopAAX()
-            Loadify.hide()
             aaxPipeline.cancelAllTasks()
+            coordinator.selectedCatalogueSource = .visibl
+            Loadify.hide()
         }
     }
 }
 
 extension AAXProfileSection {
     private func aaxSignOutConfirmationAlert() {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: String(format: "aax_disconnect_alert_title".localized, aaxProviderName),
             alertMessage: String(format: "aax_disconnect_alert_message".localized, aaxProviderName),
             alertButtons: [
@@ -145,7 +154,7 @@ extension AAXProfileSection {
     }
     
     private func signInRequiredAlert() {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: "sign_in_required_alert_title".localized,
             alertMessage: "sign_in_required_alert_message".localized,
             alertButtons: [

@@ -37,6 +37,8 @@ struct PlayerNavigationBar: View {
             .trackButtonTap("TOC Navbar")
             
             PlayerSliderButton(isLoading: isLoading) {
+                HapticFeedback.trigger(style: .medium)
+                
                 if playerCoordinator.selectedTab == .timeSlider {
                     playerCoordinator.selectTab(.bookInfo)
                 } else {

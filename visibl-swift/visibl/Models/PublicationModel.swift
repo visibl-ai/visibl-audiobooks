@@ -13,7 +13,7 @@ class PublicationModel: Codable, Identifiable, Equatable, Hashable {
     var id: String { sku }
     let sku: String
     let metadata: MetadataModel?
-    let coverArtUrl: String
+    let coverArtUrl: String?
     // var sceneStyles: [StyleModel]?
     let visibility: Visibility
 
@@ -53,9 +53,11 @@ class PublicationModel: Codable, Identifiable, Equatable, Hashable {
 
         // decode (required fields)
         sku = try container.decode(String.self, forKey: .sku)
-        coverArtUrl = try container.decode(String.self, forKey: .coverArtUrl)
         visibility = try container.decode(Visibility.self, forKey: .visibility)
         title = try container.decode(String.self, forKey: .title)
+
+        // decodeIfPresent (optional fields)
+        coverArtUrl = try container.decodeIfPresent(String.self, forKey: .coverArtUrl)
 
         // decodeIfPresent (optional fields)
         metadata = try container.decodeIfPresent(MetadataModel.self, forKey: .metadata)
@@ -159,4 +161,5 @@ class GraphStatusModel: Codable, Equatable, Hashable {
 
 extension Notification.Name {
     static let graphProgressDidUpdate = Notification.Name("graphProgressDidUpdate")
+    static let uploadedPublicationsDidChange = Notification.Name("uploadedPublicationsDidChange")
 }

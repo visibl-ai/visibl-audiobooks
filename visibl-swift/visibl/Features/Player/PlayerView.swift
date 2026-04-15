@@ -28,21 +28,23 @@ struct PlayerView: View {
             wrappedValue: PlayerViewModel(
                 player: diContainer.player,
                 authService: diContainer.authService,
-                audiobook: audiobook
+                audiobook: audiobook,
+                userLibraryObserver: diContainer.userLibraryObserver
             )
         )
         
         _graphViewModel = StateObject(
             wrappedValue: GraphViewModel(
                 audiobook: audiobook,
-                player: diContainer.player
+                player: diContainer.player,
+                userLibraryObserver: diContainer.userLibraryObserver
             )
         )
         
         sceneStylesViewModel = SceneStylesViewModel(
             audiobook: audiobook,
             player: diContainer.player,
-            diContainer: diContainer
+            userLibraryObserver: diContainer.userLibraryObserver
         )
     }
     
@@ -50,7 +52,7 @@ struct PlayerView: View {
         ZStack (alignment: .bottom) {
             SceneCarouselView(viewModel: sceneStylesViewModel)
                 .onTapGesture {
-                    HapticFeedback.shared.trigger(style: .heavy)
+                    HapticFeedback.trigger(style: .heavy)
                     playerViewModel.playPause()
                 }
             
@@ -183,7 +185,7 @@ struct PlayerView: View {
             }
             .background(.white.opacity(0.00001))
             .onTapGesture {
-                HapticFeedback.shared.trigger(style: .heavy)
+                HapticFeedback.trigger(style: .heavy)
                 playerViewModel.playPause()
             }
             .trackButtonTap("Play Pause Overlay")

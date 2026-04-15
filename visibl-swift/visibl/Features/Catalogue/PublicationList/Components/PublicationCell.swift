@@ -1,5 +1,5 @@
 //
-//  CatalogueGridCell.swift
+//  PublicationCell.swift
 //  visibl
 //
 //  Copyright (c) 2025 Visibl Holdings Limited
@@ -8,13 +8,13 @@
 import SwiftUI
 import Kingfisher
 
-struct CatalogueGridCell: View {
-    let publication: PublicationModel
+struct PublicationCell: View {
+    let publication: PublicationPreviewModel
     let action: () -> Void
-    
+
     var body: some View {
         VStack(alignment: .center, spacing: 12) {
-            if let url = URL(string: publication.coverArtUrl) {
+            if let coverUrl = publication.cover, let url = URL(string: coverUrl) {
                 Color.gray
                     .frame(height: 170)
                     .frame(maxWidth: .infinity)
@@ -31,14 +31,14 @@ struct CatalogueGridCell: View {
             } else {
                 placeholder
             }
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(publication.title)
                     .font(.system(size: 15, weight: .semibold))
                     .lineLimit(1)
-                
-                if !publication.availableAuthors.isEmpty {
-                    Text(publication.availableAuthors.joined(separator: ", "))
+
+                if !publication.authors.isEmpty {
+                    Text(publication.authors.joined(separator: ", "))
                         .font(.system(size: 13, weight: .regular))
                         .lineLimit(1)
                 }
@@ -49,13 +49,13 @@ struct CatalogueGridCell: View {
         }
         .frame(width: 170)
         .overlay(alignment: .topLeading) {
-            importedBadge
+            sourceBadge
         }
         .onTapGesture {
             action()
         }
     }
-    
+
     private var placeholder: some View {
         Rectangle()
             .fill(Color(UIColor.systemGray4))
@@ -63,16 +63,27 @@ struct CatalogueGridCell: View {
             .cornerRadius(6)
             .shimmerEffect()
     }
-    
-    private var importedBadge: some View {
-        Text("catalogue_source_type_aac".localized)
+
+    @ViewBuilder
+    private var sourceBadge: some View {
+        switch publication.sourceType {
+        case .aax:
+            badgeView(text: "catalogue_source_type_aax".localized, color: .customIndigo)
+        case .uploaded:
+            badgeView(text: "catalogue_source_type_uploaded".localized, color: .teal)
+        case .visibl:
+            EmptyView()
+        }
+    }
+
+    private func badgeView(text: String, color: Color) -> some View {
+        Text(text)
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.white)
             .lineLimit(1)
             .padding(.vertical, 4)
             .padding(.horizontal, 8)
-            .background(.customIndigo.gradient, in: .capsule)
+            .background(color.gradient, in: .capsule)
             .padding(8)
-            .opacity(publication.visibility == .private ? 1 : 0)
     }
 }

@@ -24,9 +24,7 @@ struct MyLibraryView: View {
         self.diContainer = diContainer
         
         _viewModel = StateObject(wrappedValue: MyLibraryViewModel(
-            catalogueObserver: diContainer.catalogueObserver,
             userLibraryObserver: diContainer.userLibraryObserver,
-            aaxCatalogueObserver: diContainer.aaxCatalogueObserver,
             player: diContainer.player,
             aaxClient: diContainer.aaxClient,
             aaxPipeline: diContainer.aaxPipeline
@@ -153,7 +151,7 @@ struct MyLibraryView: View {
                             option: option,
                             isSelected: viewModel.selectedFilter == option
                         ) {
-                            HapticFeedback.shared.trigger(style: .light)
+                            HapticFeedback.trigger(style: .light)
                             viewModel.selectedFilter = option
                         }
                         .id(option.id)
@@ -224,7 +222,7 @@ extension MyLibraryView {
             ]
         )
         
-        if !audiobook.isDownloaded && audiobook.isAAX {
+        if !audiobook.isDownloaded && audiobook.sourceType == .aax {
             Toastify.show(
                 style: .warning,
                 message: String(format: "aax_not_downloaded_toast_warning".localized, audiobook.title)
@@ -271,10 +269,13 @@ extension MyLibraryView {
         if viewModel.isDownloading(audiobook) {
             audiobookIsDownloadingAlert(audiobook)
         } else {
-            if audiobook.isAAX {
+            switch audiobook.sourceType {
+            case .aax:
                 Mixpanel.mainInstance().track(event: "aax_book_played")
-            } else {
+            case .visibl:
                 Mixpanel.mainInstance().track(event: "public_book_played")
+            case .uploaded:
+                Mixpanel.mainInstance().track(event: "uploaded_book_played")
             }
             
             coordinator.presentFullScreenCover(.player(coordinator, audiobook))
@@ -288,7 +289,7 @@ extension MyLibraryView {
     private var toolbarMenu: some View {
         Menu {
             Button(action: {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 viewModel.selectedFilter = .all
                 viewModel.selectedLayout = .grid
             }) {
@@ -298,7 +299,7 @@ extension MyLibraryView {
             .trackButtonTap("my_books_layout_grid".localized)
             
             Button(action: {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 viewModel.selectedFilter = .all
                 viewModel.selectedLayout = .list
             }) {
@@ -312,7 +313,7 @@ extension MyLibraryView {
             Section(header: Text("my_books_sort_by_title".localized)) {
                 ForEach(MyLibrarySortingOption.allCases) { option in
                     Button(action: {
-                        HapticFeedback.shared.trigger(style: .light)
+                        HapticFeedback.trigger(style: .light)
                         viewModel.selectedSorting = option
                     }) {
                         Label {
@@ -350,11 +351,11 @@ extension MyLibraryView {
             // Debug-only button
             #if DEBUG
             Button(action: {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 UIPasteboard.general.string = audiobook.id
                 Toastify.show(style: .success, message: "Book ID copied to clipboard")
                 print("Audiobook ID copied to clipboard: \(audiobook.id)")
-                print("Completed chapters \(audiobook.publication.graphProgress?.completedChapters?.count)")
+                print("Completed chapters \(audiobook.publication.graphProgress?.completedChapters?.count ?? 0)")
                 // print("Chapter progress \(audiobook.publication.graphProgress?.chapterProgress)")
             }) {
                 Label("Copy Book ID (Debug)", systemImage: "doc.on.clipboard")
@@ -365,7 +366,7 @@ extension MyLibraryView {
             
             if !audiobook.isDownloaded && audiobook.isAAX {
                 Button(action: {
-                    HapticFeedback.shared.trigger(style: .light)
+                    HapticFeedback.trigger(style: .light)
                     viewModel.restartDownload(audiobook)
                 }) {
                     Label("my_books_restart_download".localized, systemImage: "arrow.clockwise")
@@ -374,7 +375,7 @@ extension MyLibraryView {
             }
             
             Button(action: {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 viewModel.toggleFavorite(audiobook)
             }) {
                 Label(
@@ -385,7 +386,7 @@ extension MyLibraryView {
             .trackButtonTap("my_books_favorite_add".localized)
             
             Button(action: {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 
                 if viewModel.isAudiobookInPlayer(audiobook) {
                     audiobookIsNowPlayingAlert(audiobook)
@@ -398,7 +399,7 @@ extension MyLibraryView {
             .trackButtonTap("my_books_mark_finished".localized)
             
             Button(action: {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 
                 if viewModel.isAudiobookInPlayer(audiobook) {
                     audiobookIsNowPlayingAlert(audiobook)
@@ -411,7 +412,7 @@ extension MyLibraryView {
             .trackButtonTap("my_books_reset_progress".localized)
             
             Button(action: {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 viewModel.moveToArchive(audiobook)
             }) {
                 Label(
@@ -424,8 +425,8 @@ extension MyLibraryView {
             Divider()
             
             Button(action: {
-                HapticFeedback.shared.trigger(style: .light)
-                coordinator.navigateTo(.publicationDetails(audiobook.publication))
+                HapticFeedback.trigger(style: .light)
+                // coordinator.navigateTo(.publicationDetails(audiobook.publication))
             }) {
                 Label("my_books_show_in_catalogue".localized, systemImage: "bag")
             }
@@ -434,7 +435,7 @@ extension MyLibraryView {
             Divider()
             
             Button(role: .destructive, action: {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 
                 if viewModel.isAudiobookInPlayer(audiobook) {
                     audiobookIsNowPlayingAlert(audiobook)
@@ -454,7 +455,7 @@ extension MyLibraryView {
 
 extension MyLibraryView {
     private func bookDeleteConfirmationAlert(_ audiobook: AudiobookModel) {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: "my_books_delete_confirm_title".localized,
             alertMessage: String(format: "my_books_delete_confirm_message".localized, audiobook.title),
             alertButtons: [
@@ -467,7 +468,7 @@ extension MyLibraryView {
     }
     
     private func audiobookIsDownloadingAlert(_ audiobook: AudiobookModel) {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: "my_books_downloading_title".localized,
             alertMessage: String(format: "my_books_downloading_message".localized, audiobook.title),
             alertButtons: [.default("my_books_ok_btn".localized) {}]
@@ -475,7 +476,7 @@ extension MyLibraryView {
     }
     
     private func voucherIsNotValidAlert(_ audiobook: AudiobookModel) {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: "my_books_invalid_voucher_title".localized,
             alertMessage: String(format: "my_books_invalid_voucher_message".localized, audiobook.title),
             alertButtons: [.default("my_books_ok_btn".localized) {}]
@@ -483,7 +484,7 @@ extension MyLibraryView {
     }
     
     private func graphIsProcessingAlert(_ audiobook: AudiobookModel) {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: "my_books_graph_processing_title".localized,
             alertMessage: String(format: "my_books_graph_processing_message".localized, audiobook.title),
             alertButtons: [.default("my_books_ok_btn".localized) {}]
@@ -491,7 +492,7 @@ extension MyLibraryView {
     }
     
     private func transcribingAlert(_ audiobook: AudiobookModel) {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: "my_books_transcribing_title".localized,
             alertMessage: "my_books_transcribing_message".localized,
             alertButtons: [
@@ -501,7 +502,7 @@ extension MyLibraryView {
     }
 
     private func speechRecognitionDeniedAlert(_ audiobook: AudiobookModel) {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: "my_books_speech_recognition_title".localized,
             alertMessage: "my_books_speech_recognition_message".localized,
             alertButtons: [
@@ -516,7 +517,7 @@ extension MyLibraryView {
     }
     
     private func audiobookIsNowPlayingAlert(_ audiobook: AudiobookModel) {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: "my_books_now_playing_title".localized,
             alertMessage: String(format: "my_books_now_playing_message".localized, audiobook.title),
             alertButtons: [.default("my_books_ok_btn".localized) {}]
