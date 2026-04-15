@@ -60,6 +60,19 @@ async function deleteImportedList({uid}) {
   await storeData({ref: `${userToDbRef({uid})}/importedSkus`, data: []});
 }
 
+async function addImportedSku({uid, sku}) {
+  // Get the existing list of imported SKUs
+  const existingList = await getData({ref: `${userToDbRef({uid})}/importedSkus`}) || [];
+
+  // Add the SKU if it doesn't already exist
+  if (!existingList.includes(sku)) {
+    existingList.push(sku);
+    await storeData({ref: `${userToDbRef({uid})}/importedSkus`, data: existingList});
+  }
+
+  return existingList;
+}
+
 export {
   saveUser,
   getUser,
@@ -68,4 +81,5 @@ export {
   usersGet,
   usersUpdateImportedList,
   deleteImportedList,
+  addImportedSku,
 };

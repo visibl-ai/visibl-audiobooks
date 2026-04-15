@@ -15,10 +15,13 @@ import {
 } from "./transcriptionStorage.js";
 import {checkAndInitiateGraphGeneration} from "../../util/graphGenerationHelper.js";
 import {libraryUpdateTranscriptionStatusRtdb} from "../../storage/realtimeDb/library.js";
-import {catalogueGetRtdb} from "../../storage/realtimeDb/catalogue.js";
+import {catalogueGetRtdb, catalogueUpdateRtdbProperty} from "../../storage/realtimeDb/catalogue.js";
 import CatalogueProgressTracker from "../../storage/realtimeDb/CatalogueProgressTracker.js";
 import {stichTranscriptionChapters} from "../../util/transcribe.js";
 import {getInstance as getAnalytics} from "../../analytics/bookPipelineAnalytics.js";
+import {extractTitleAndAuthorFromTranscription} from "../userBookImport/metadataProcessor.js";
+import {generateBookCover} from "../userBookImport/coverGenerator.js";
+import {recordUserRateLimit} from "../../storage/realtimeDb/userRateLimiter.js";
 
 const NUM_THREADS = 4; // 32 GB instances have 8 cores. Let each ffmpeg process run 2 threads.
 
@@ -59,6 +62,7 @@ async function processPrivateM4B({uid, item, numThreads = NUM_THREADS}) {
     estimatedTokens: 0,
   });
 
+  await recordUserRateLimit({uid, action: "bookImport"});
   return {success: true, message: "Book process dispatched"};
 }
 
@@ -243,7 +247,70 @@ async function generateTranscriptions({uid, item, numThreads = NUM_THREADS, entr
     },
   });
 
-  // 7. Initiate graph generation for this specific book
+  // 7. For custom uploads, extract title/author from transcription and generate cover
+  const catalogueItem = await catalogueGetRtdb({sku});
+  if (catalogueItem?.isCustomUpload) {
+    logger.info(`generateTranscriptions: Processing custom upload ${sku} - extracting title/author and generating cover`);
+
+    // Extract title and author from transcription
+    let currentTitle = catalogueItem.title;
+    let currentAuthor = (catalogueItem.author || []).join(", ");
+
+    try {
+      logger.info(`generateTranscriptions: Extracting title and author from transcription for ${sku}`);
+      const {title, author} = await extractTitleAndAuthorFromTranscription({
+        uid,
+        sku,
+        transcriptions,
+        tentativeTitle: catalogueItem.title,
+      });
+
+      if (title) {
+        await catalogueUpdateRtdbProperty({sku, property: "title", value: title});
+        await catalogueUpdateRtdbProperty({sku, property: "metadata/title", value: title});
+        currentTitle = title;
+        logger.info(`generateTranscriptions: Updated title for ${sku}: ${title}`);
+      }
+      if (author) {
+        // Convert author string to array format for consistency
+        const authorArray = author.split(/,|&|and/).map((a) => a.trim()).filter((a) => a);
+        await catalogueUpdateRtdbProperty({sku, property: "author", value: authorArray});
+        await catalogueUpdateRtdbProperty({sku, property: "metadata/author", value: authorArray});
+        currentAuthor = author;
+        logger.info(`generateTranscriptions: Updated author for ${sku}: ${author}`);
+      }
+    } catch (error) {
+      logger.error(`generateTranscriptions: Error extracting title & author from transcription for ${sku}:`, error);
+    }
+
+    // Generate book cover
+    if (!catalogueItem.coverArtUrl) {
+      logger.info(`generateTranscriptions: Generating book cover for ${sku}`);
+
+      try {
+        if (currentTitle && currentTitle !== "Untitled") {
+          const coverResult = await generateBookCover({
+            title: currentTitle,
+            author: currentAuthor,
+            uid,
+            sku,
+          });
+
+          if (!coverResult.success) {
+            logger.warn(`generateTranscriptions: Failed to generate book cover for ${sku}: ${coverResult.error}`);
+          } else {
+            logger.info(`generateTranscriptions: Successfully generated book cover for ${sku}`);
+          }
+        } else {
+          logger.warn(`generateTranscriptions: Cannot generate cover for ${sku}: missing or invalid title`);
+        }
+      } catch (error) {
+        logger.error(`generateTranscriptions: Error generating book cover for ${sku}:`, error);
+      }
+    }
+  }
+
+  // 8. Initiate graph generation for this specific book
   await checkAndInitiateGraphGeneration({uid, sku});
 
   // Return the transcription path

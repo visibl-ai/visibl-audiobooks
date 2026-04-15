@@ -86,22 +86,34 @@ async function libraryAddItemRtdb({uid, data}) {
 
   // Check if this is a private item. If it is, add the key, iv and url for the encrypted file.
   if (catalogueItem.visibility === "private") {
-    // get UID:SKU from UserAAXSync
-    const aaxItem = await aaxGetItemFirestore(`${uid}:${sku}`);
-    if (aaxItem) {
-      // Check if catalogue item has a default graph or no transcription/graph in progress. If not, transcribe.
-      logger.debug(`libraryAddItemRtdb: uid: ${uid}, aaxItem in DB: ${aaxItem.sku}`);
+    // Check if this is a custom upload - skip aax check for custom uploads
+    if (catalogueItem.isCustomUpload) {
+      logger.debug(`libraryAddItemRtdb: uid: ${uid}, custom upload: ${sku}`);
       if (!catalogueItem.defaultGraphId && !catalogueItem.graphProgress?.inProgress && !catalogueItem.graphProgress?.transcriptionInProgress) {
-        await sendNotifications({uids: [uid], title: "Audible Import Started", body: `Importing ${aaxItem.title} - we'll notify you when it's ready.`});
-        logger.debug(`libraryAddItemRtdb: uid: ${uid} completed - dispatched ${aaxItem.sku}.`);
+        await sendNotifications({uids: [uid], title: "Custom Upload Started", body: `Processing ${catalogueItem.title || "your audiobook"} - we'll notify you when it's ready.`});
+        logger.debug(`libraryAddItemRtdb: uid: ${uid} completed - custom upload ${sku} queued.`);
       }
     } else {
-      logger.error(
-          `libraryAddItemRtdb: No aax item found for ${uid}:${sku}`,
-      );
-      throw new Error(`User does not have access to this catalogue item ${uid}:${sku}`);
+      // get UID:SKU from UserAAXSync for Audible imports
+      const aaxItem = await aaxGetItemFirestore(`${uid}:${sku}`);
+      if (aaxItem) {
+        // Check if catalogue item has a default graph or no transcription/graph in progress. If not, transcribe.
+        logger.debug(`libraryAddItemRtdb: uid: ${uid}, aaxItem in DB: ${aaxItem.sku}`);
+        if (!catalogueItem.defaultGraphId && !catalogueItem.graphProgress?.inProgress && !catalogueItem.graphProgress?.transcriptionInProgress) {
+          await sendNotifications({uids: [uid], title: "Audible Import Started", body: `Importing ${aaxItem.title} - we'll notify you when it's ready.`});
+          logger.debug(`libraryAddItemRtdb: uid: ${uid} completed - dispatched ${aaxItem.sku}.`);
+        }
+      } else {
+        logger.error(
+            `libraryAddItemRtdb: No aax item found for ${uid}:${sku}`,
+        );
+        throw new Error(`User does not have access to this catalogue item ${uid}:${sku}`);
+      }
     }
-  } else {
+  }
+
+  // If public or custom upload, set m4b urls
+  if (catalogueItem.visibility === "public" || catalogueItem.isCustomUpload) {
     newItem.content.m4b = {
       url: getCDNM4bUrl({sku}),
       urlGcp: await getGcpM4bUrl({sku}),
@@ -144,6 +156,10 @@ function getCDNM4bUrl({sku}) {
 }
 
 async function getGcpM4bUrl({sku}) {
+  // Custom uploads (CSTM prefix) are stored in a separate folder
+  if (sku.startsWith("CSTM")) {
+    return await getPublicUrl({path: `Catalogue/Custom/Raw/${sku}.m4b`});
+  }
   return await getPublicUrl({path: `Catalogue/Raw/${sku}.m4b`});
 }
 

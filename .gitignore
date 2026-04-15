@@ -2,3 +2,6 @@
 .swiftignore
 sync-from-private.sh
 sync-swift-from-private.sh
+visibl-server/.github
+visibl-server/env-cipher.sh
+visibl-server/sync-bindings.sh

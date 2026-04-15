@@ -45,7 +45,7 @@ export const v1cacheNuke = onRequest(firebaseHttpFnConfig, async (req, res) => {
 
 export const v1getCachedScenes = onCall(firebaseFnConfig, async (context) => {
   const {data} = await validateOnCallAuth(context);
-  return await getScenesFromCache({sceneId: data.sceneId});
+  return await getScenesFromCache({sceneId: data.sceneId, forceRefresh: data.forceRefresh});
 });
 
 const region = process.env["FUNCTIONS_EMULATOR"] !== "true" ? "europe-west1" : "us-central1";

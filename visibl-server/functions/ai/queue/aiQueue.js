@@ -17,9 +17,6 @@ import {
 } from "../../storage/storage.js";
 import {dispatchTask} from "../../util/dispatch.js";
 import {FBDB_STORAGE_THRESHOLD, QUEUE_BATCH_LIMIT, QUEUE_RETRY_LIMIT} from "./config.js";
-import handleSceneImagePostProcessing from "../../storage/realtimeDb/hooks/handleSceneImagePostProcessing.js";
-import handleCharacterImagePostProcessing from "../../storage/realtimeDb/hooks/handleCharacterImagePostProcessing.js";
-import handleLocationImagePostProcessing from "../../storage/realtimeDb/hooks/handleLocationImagePostProcessing.js";
 
 export default class AiQueue {
   constructor({queueName, rateLimiters, uniqueKeyGenerator, dispatchFunctionName = null, defaultModel = null}) {
@@ -240,15 +237,6 @@ export default class AiQueue {
         tokensUsed: [resultObj.tokensUsed || 0],
       });
 
-      // Handle post-processing for specific entry types
-      if (entry.params?.type === "sceneImage") {
-        await handleSceneImagePostProcessing(entry, resultObj);
-      } else if (entry.params?.type === "character" || entry.params?.type === "character-profile") {
-        await handleCharacterImagePostProcessing(entry, resultObj);
-      } else if (entry.params?.type === "location") {
-        await handleLocationImagePostProcessing(entry, resultObj);
-      }
-
       // Return success status for batch-level tracking
       return {success: true, status: finalStatus};
     } catch (error) {
@@ -468,6 +456,7 @@ export default class AiQueue {
 
     // Remove large params from params object
     const safeParams = Object.fromEntries(Object.entries(params).filter(([, value]) => {
+      if (value === undefined || value === null) return true;
       return JSON.stringify(value).length <= 100;
     }));
 

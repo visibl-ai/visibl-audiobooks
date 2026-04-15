@@ -14,6 +14,7 @@ import {
   processAAXTranscription,
   updateAAXCLibrary,
   updateMetadata,
+  resetAAXConnection,
 } from "../util/aaxHelper.js";
 
 import {
@@ -35,7 +36,7 @@ export const v1aaxConnect = onCall(firebaseFnConfig, async (context) => {
 
 export const v1disconnectAAX = onCall(firebaseFnConfig, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await disconnectAAXAuth(uid, data);
+  return await disconnectAAXAuth({uid, data});
 });
 
 export const v1getAAXAvailable = onCall(firebaseFnConfig, async (context) => {
@@ -97,3 +98,9 @@ export const v1processAAXTranscription = onTaskDispatched(
       logger.debug(`v1processAAXTranscription: ${JSON.stringify(req.data).substring(0, 150)}...`);
       return await processAAXTranscription(req.data);
     });
+
+export const v1AdminResetAAXConnection = onRequest(firebaseHttpFnConfig, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  await resetAAXConnection({uid: req.body.uid, aaxUserId: req.body.aaxUserId});
+  res.status(200).send({success: true});
+});

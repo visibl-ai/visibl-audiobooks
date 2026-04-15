@@ -1,4 +1,4 @@
-# <a href="https://visibl.ai"><img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/e2f040dd-3dda-408b-e767-b5c02ed1ec00/thumb" alt="Visibl" width="32" height="32" style="vertical-align: middle;"> visibl.ai - Fully automated, multi-pass novel-to-graphic-novel pipeline</a>
+# <a href="https://visibl.ai"><img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/e2f040dd-3dda-408b-e767-b5c02ed1ec00/thumb" alt="Visibl" width="32" height="32" style="vertical-align: middle;"> visibl.ai - Automated, multi-pass Book to Graphic Novel pipeline</a>
 <p align="center">
   <strong>Transform fiction novels into user guided visual narratives</strong>
 </p>

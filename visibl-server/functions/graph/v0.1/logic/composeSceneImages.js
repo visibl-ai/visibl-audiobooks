@@ -198,7 +198,6 @@ async function composeSceneImages({graphId, defaultSceneId, scenes, sku, uid}) {
         seed: seed,
         enable_base64_output: true,
         enable_safety_checker: false,
-        enable_sync_mode: true,
       },
       // Metadata for updating RTDB after generation
       graphId,

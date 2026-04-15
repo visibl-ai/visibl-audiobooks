@@ -649,6 +649,8 @@ async function getTranscriptions(params) {
   let filename;
   if (uid === "admin") {
     filename = `Catalogue/Processed/${sku}/${sku}-transcriptions.json`;
+  } else if (sku.startsWith("CSTM")) {
+    filename = `Catalogue/Custom/Processed/${sku}/${sku}-transcriptions.json`;
   } else {
     filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-transcriptions.json`;
   }

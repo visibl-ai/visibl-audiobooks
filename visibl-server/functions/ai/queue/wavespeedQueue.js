@@ -4,14 +4,14 @@
 
 import AiQueue from "./aiQueue.js";
 import {rateLimiters, QUEUE_RETRY_LIMIT} from "./config.js";
-import {queueEntryTypeToFunction, searchBilling} from "../wavespeed/wavespeed.js";
+import {queueEntryTypeToFunction} from "../wavespeed/wavespeed.js";
 import logger from "../../util/logger.js";
 import {moderateImagePrompt} from "../../util/imageHelper.js";
 import {
   queueAddEntries,
   queueUpdateEntries,
 } from "../../storage/firestore/queue.js";
-import {captureEvent, flushAnalytics} from "../../analytics/index.js";
+import {HOSTING_DOMAIN, ENVIRONMENT} from "../../config/config.js";
 
 /**
  * Queue implementation for Wavespeed API requests
@@ -39,6 +39,21 @@ class WavespeedQueue extends AiQueue {
 
     // Set retry limit
     this.retryLimit = QUEUE_RETRY_LIMIT;
+
+    // Enable webhook callback mode - entries stay in "processing" until callback is received
+    this.waitCallback = true;
+  }
+
+  /**
+   * Get the callback URL for Wavespeed webhooks
+   * @param {string} entryId - The queue entry ID to include in the callback URL
+   * @return {string} The callback URL
+   */
+  getCallbackUrl(entryId) {
+    const baseUrl = ENVIRONMENT.value() === "development" && process.env.TUNNEL_APP_URL ?
+      process.env.TUNNEL_APP_URL :
+      HOSTING_DOMAIN.value();
+    return `${baseUrl}/v1/wavespeed/callback?entryId=${entryId}`;
   }
 
   /**
@@ -59,69 +74,20 @@ class WavespeedQueue extends AiQueue {
    * @return {Promise<Object>} Processing result
    */
   async processItem({entry}) {
-    const startTime = Date.now();
-    let success = false;
-    let errorMessage = null;
-    let result = null;
+    const generateFn = queueEntryTypeToFunction(entry.entryType);
+    const params = {
+      prompt: entry.params.prompt,
+      model: entry.params.model || "wavespeed-ai/flux-kontext-dev/multi",
+      modelParams: entry.params.modelParams || {},
+      webhookUrl: this.getCallbackUrl(entry.id),
+    };
 
-    try {
-      const generateFn = queueEntryTypeToFunction(entry.entryType);
-      const params = {
-        prompt: entry.params.prompt,
-        model: entry.params.model || "wavespeed-ai/flux-kontext-dev/multi",
-        outputPath: entry.params.outputPath || entry.params.outputPathWithoutExtension + ".jpeg",
-        outputFormat: entry.params.outputFormat || "jpeg",
-        modelParams: entry.params.modelParams || {},
-        pollingConfig: entry.params.pollingConfig || undefined, // Pass through polling config if provided
-      };
+    logger.debug(`Processing Wavespeed queue item with model: ${params.model}`);
+    const result = await generateFn(params);
 
-      logger.debug(`Processing Wavespeed queue item with model: ${params.model}`);
-      result = await generateFn(params);
-      success = true;
-
-      return result;
-    } catch (error) {
-      errorMessage = error.message || error.toString();
-      throw error;
-    } finally {
-      if (result?.id) {
-        const latencyMs = Date.now() - startTime;
-
-        // Get cost from billing information
-        const billing = await searchBilling({prediction_uuids: [result.id]});
-
-        const model = entry.params.model || "wavespeed-ai/flux-kontext-dev/multi";
-        const cost = billing?.data.items?.[0]?.price || 0;
-
-        // Simple analytics event - Analytics provider will handle the mapping
-        const eventProperties = {
-          provider: "wavespeed",
-          model: model,
-          traceId: entry.id,
-          input: entry.params.prompt,
-          output: success && result ? `Generated image: ${result}` : undefined,
-          latency: latencyMs,
-          success: success,
-          error: errorMessage,
-          cost: cost,
-          entry: entry,
-          sku: entry.params.sku,
-          uid: entry.params.uid,
-          graph_id: entry.params.graphId,
-        };
-
-        // Send event using generic event name
-        const distinctId = entry.params.uid || "system";
-        await captureEvent("image_generation", eventProperties, distinctId);
-
-        // Flush analytics events to ensure they're sent
-        await flushAnalytics().catch((err) => {
-          logger.debug(`Analytics flush warning: ${err.message}`);
-        });
-
-        logger.debug(`Wavespeed image generation analytics captured - latency: ${latencyMs}ms, success: ${success}`);
-      }
-    }
+    // Task submitted successfully - webhook will handle completion
+    logger.debug(`Wavespeed task submitted for entry ${entry.id}, task ID: ${result?.id}`);
+    return result;
   }
 
   /**
@@ -143,7 +109,7 @@ class WavespeedQueue extends AiQueue {
    * @return {boolean} Whether it's a content policy violation
    */
   isContentPolicyViolation(error) {
-    // Check for the isContentFiltered flag set in pollWavespeedResult
+    // Check for the isContentFiltered flag
     if (error.isContentFiltered === true) {
       return true;
     }

@@ -73,7 +73,7 @@ function largeDispatchInstance({maxConcurrentDispatches = 1, concurrency} = {}) 
     },
     region: DEFAULT_REGION,
     memory: "32GiB",
-    timeoutSeconds: 3600,
+    timeoutSeconds: 1800,
     secrets: firebaseFnConfig.secrets,
   };
 
@@ -102,7 +102,7 @@ function microDispatchInstance({maxConcurrentDispatches = 1, concurrency} = {}) 
     },
     region: DEFAULT_REGION,
     // memory: "128MiB",
-    timeoutSeconds: 3600,
+    timeoutSeconds: 1800,
     secrets: firebaseFnConfig.secrets,
   };
 
@@ -132,7 +132,7 @@ function mediumDispatchInstance({maxConcurrentDispatches = 1, concurrency = 1} =
     concurrency: concurrency,
     region: DEFAULT_REGION,
     memory: "4GiB",
-    timeoutSeconds: 3600,
+    timeoutSeconds: 1800,
     secrets: firebaseFnConfig.secrets,
   };
 }

@@ -6,6 +6,7 @@ import {OPENROUTER_API_KEY, MOCK_LLM} from "../../config/config.js";
 import {mockApiCall, OpenRouterMockResponse} from "./mock.js";
 import {zodResponseFormat} from "openai/helpers/zod.mjs";
 import {captureEvent, flushAnalytics} from "../../analytics/index.js";
+import {TogetherClient} from "../together/client.js";
 
 /**
  * Reusable class for OpenRouter API requests
@@ -62,6 +63,32 @@ class OpenRouterClient {
       defaultHeaders: this.defaultHeaders,
       timeout: this.timeout,
     });
+  }
+
+  /**
+   * Checks if the provider configuration specifies Together
+   * @param {Object} provider - Provider configuration from prompt
+   * @return {boolean} - True if Together provider is specified
+   */
+  _isTogetherProvider(provider) {
+    if (!provider) return false;
+
+    // Check openAIGenerationConfig.provider format (used in prompts)
+    const only = provider.only || [];
+    const order = provider.order || [];
+    const combined = [...only, ...order];
+    return combined.some((p) => p.includes("together"));
+  }
+
+  /**
+   * Gets the TogetherClient instance (lazy initialization)
+   * @return {TogetherClient} - The TogetherClient instance
+   */
+  _getTogetherClient() {
+    if (!this._togetherClient) {
+      this._togetherClient = new TogetherClient();
+    }
+    return this._togetherClient;
   }
 
   /**
@@ -201,6 +228,26 @@ class OpenRouterClient {
       groups: analyticsOptions?.groups || {},
     };
 
+    // Check if this should route to TogetherAI directly
+    const providerConfig = generationConfig?.provider;
+    if (this._isTogetherProvider(providerConfig)) {
+      return await this._sendToTogether({
+        params,
+        wantsJson,
+        responseKey,
+        analyticsOptions,
+        analyticsTracking,
+        startTime,
+        model,
+        messages,
+        globalPrompt,
+        logVerbose,
+        mockResponse,
+        retry,
+        request,
+      });
+    }
+
     try {
       if (generationConfig) {
         // Copy all generationConfig keys to params except provider which is handled separately
@@ -291,6 +338,12 @@ class OpenRouterClient {
         return await this.sendRequest(request);
       }
 
+      if (retry && error.name === "LengthFinishReasonError") {
+        logger.warn(`OpenRouter API response truncated (length limit reached). Retrying immediately.`);
+        request.retry = false;
+        return await this.sendRequest(request);
+      }
+
       logger.error("Error sending message to OpenRouter:", error);
       const errorLatencyMs = Date.now() - startTime; // Calculate latency even for errors
 
@@ -367,6 +420,198 @@ class OpenRouterClient {
       logger.debug(`Original text for JSON parsing: ${text.substring(0, 100)} ... ${text.substring(text.length - 100)}`);
       logger.debug("================================================");
       return {error: e.message, originalText: text};
+    }
+  }
+
+  /**
+   * Routes request to TogetherAI directly instead of OpenRouter
+   * @private
+   * @param {Object} options - Request options
+   * @return {Promise<Object>} - Response object
+   */
+  async _sendToTogether(options) {
+    const {
+      params,
+      wantsJson,
+      responseKey,
+      analyticsOptions,
+      analyticsTracking,
+      startTime,
+      model,
+      messages,
+      globalPrompt,
+      logVerbose,
+      mockResponse,
+      retry,
+      request,
+    } = options;
+
+    // Use mock if in mock mode
+    if (this.isMockMode && mockResponse) {
+      const result = await mockApiCall(params, wantsJson, mockResponse, logVerbose);
+      return this._processTogetherResponse(result, {
+        wantsJson, responseKey, analyticsOptions, analyticsTracking,
+        startTime, model, messages, logVerbose,
+      });
+    } else if (this.isMockMode && !mockResponse) {
+      throw new Error("Mock mode is enabled but no mockResponse provided. Please provide an OpenRouterMockResponse instance.");
+    }
+
+    try {
+      const togetherClient = this._getTogetherClient();
+
+      // Prepare params for Together (remove provider field)
+      const togetherParams = {...params};
+      delete togetherParams.provider;
+
+      if (logVerbose) {
+        logger.debug(`TogetherClient: Routing request to Together for model ${model}`);
+      }
+
+      const result = await togetherClient.chatCompletion({
+        params: togetherParams,
+        wantsJson,
+        responseSchema: globalPrompt.responseSchema,
+      });
+
+      return this._processTogetherResponse(result, {
+        wantsJson, responseKey, analyticsOptions, analyticsTracking,
+        startTime, model, messages, logVerbose,
+      });
+    } catch (error) {
+      // Check if this is a parsing error
+      if (retry && error.message && error.message.includes(`Cannot read properties of undefined`)) {
+        logger.warn(`Together API parsing error (likely malformed response). Retrying immediately.`);
+        request.retry = false;
+        return await this.sendRequest(request);
+      }
+
+      if (retry && error.message && error.message.includes(`SyntaxError`)) {
+        logger.warn(`Together API syntax error (likely malformed response). Retrying immediately.`);
+        request.retry = false;
+        return await this.sendRequest(request);
+      }
+
+      if (retry && error.name === "LengthFinishReasonError") {
+        logger.warn(`Together API response truncated (length limit reached). Retrying immediately.`);
+        request.retry = false;
+        return await this.sendRequest(request);
+      }
+
+      logger.error("Error sending message to Together:", error);
+      const errorLatencyMs = Date.now() - startTime;
+
+      // Track error in analytics
+      if (analyticsOptions) {
+        const errorProperties = {
+          provider: "together",
+          model: model,
+          traceId: analyticsTracking.traceId,
+          input: messages.map((m) => m.content).join("\n").substring(0, 1000),
+          latency: errorLatencyMs,
+          success: false,
+          error: {
+            message: error.message || error.toString(),
+            type: error.name || "Error",
+            code: error.code || error.type || "unknown",
+            status: error.status || 500,
+            stack: error.stack ? error.stack.split("\n").slice(0, 5).join("\n") : undefined,
+          },
+          groups: analyticsTracking.groups,
+          sku: analyticsOptions.sku,
+          uid: analyticsOptions.uid,
+          graphId: analyticsOptions.graphId,
+          promptId: analyticsOptions.promptId,
+        };
+
+        await captureEvent("llm_generation", errorProperties, analyticsTracking.distinctId);
+        await flushAnalytics();
+      }
+
+      // Check for retryable errors
+      const isNetworkError =
+        error.message?.includes("terminated") ||
+        error.code === "UND_ERR_SOCKET" ||
+        error.code === "ECONNRESET" ||
+        error.code === "ETIMEDOUT" ||
+        error.type === "system";
+
+      if (retry && (isNetworkError || error.status === 429 || (error.status >= 500 && error.status < 600))) {
+        const errorType = isNetworkError ? "network/socket error" : error.status ? `HTTP ${error.status}` : error.type || "unknown";
+        logger.warn(`Together API error (${errorType}). Waiting 10 seconds before retrying.`);
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        request.retry = false;
+        return await this.sendRequest(request);
+      }
+
+      return {error: "Together API error", details: error.message || error.toString(), responseKey};
+    }
+  }
+
+  /**
+   * Processes the response from TogetherAI
+   * @private
+   * @param {Object} result - API response
+   * @param {Object} options - Processing options
+   * @return {Object} - Processed response
+   */
+  _processTogetherResponse(result, options) {
+    const {
+      wantsJson,
+      responseKey,
+      analyticsOptions,
+      analyticsTracking,
+      startTime,
+      model,
+      messages,
+      logVerbose,
+    } = options;
+
+    const tokensUsed = result.usage?.total_tokens || 0;
+    const responseText = result.choices[0]?.message?.content || "";
+    const latencyMs = Date.now() - startTime;
+
+    // Track analytics with "together" as provider
+    if (analyticsOptions) {
+      const eventProperties = {
+        provider: "together",
+        model: result.model || model,
+        traceId: analyticsTracking.traceId,
+        input: messages.map((m) => m.content).join("\n"),
+        output: result.choices?.map((choice) => ({
+          role: choice.message?.role || "assistant",
+          content: choice.message?.content || "",
+        })),
+        latency: latencyMs,
+        success: true,
+        cost: result.usage?.total_cost,
+        result: result,
+        groups: analyticsTracking.groups,
+        sku: analyticsOptions.sku,
+        uid: analyticsOptions.uid,
+        graphId: analyticsOptions.graphId,
+        promptId: analyticsOptions.promptId,
+      };
+
+      captureEvent("llm_generation", eventProperties, analyticsTracking.distinctId);
+    }
+
+    flushAnalytics();
+
+    if (logVerbose) {
+      logger.debug(`Together response received - id: ${result.id}, model: ${result.model}, usage: ${JSON.stringify(result.usage)}`);
+      logger.debug(JSON.stringify(responseText).substring(0, 150));
+    }
+
+    if (wantsJson) {
+      const parseResult = this.parseJsonSafely(responseText);
+      if (parseResult.error) {
+        logger.error("Error trying to parse result JSON from Together response.", parseResult.error);
+        return {result: responseText, error: "JSON parsing error", details: parseResult.error, tokensUsed, responseKey};
+      }
+      return {result: parseResult.data, tokensUsed, responseKey};
+    } else {
+      return {result: responseText, tokensUsed, responseKey};
     }
   }
 
