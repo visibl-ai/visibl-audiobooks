@@ -31,7 +31,95 @@
 
 Free for iPhone. No production studios. No waiting. Just your books, visualized instantly.
 
-**Read more to understand how it works**
+**Read more:** [see it in action](#examples) • [why I built this](#the-problem) • [technical implementation](#technical-architecture)
+
+---
+
+## Examples
+
+A taste of what the pipeline produces. **Curious how it works? Jump to [Technical Architecture](#technical-architecture) below.**
+
+### See it in action
+
+A sample from *The Chrysalids* — the full pipeline end-to-end: original audiobook narration, scenes decomposed into ~15-second beats, and imagery generated in real time as the story plays. Nothing here was drawn by a human — it's all compiled from the text.
+
+> 🔊 **Turn your sound on** — the narration is the whole point.
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/1eac2c0f-9c10-40bb-b979-3a9d47b79f20">
+  </video>
+</div>
+---
+
+### Characters & locations
+
+Every named entity — people, places, buildings — is pulled from the prose, reconciled across aliases ("Gatsby" = "Mr. Gatsby" = "my neighbor's mansion"), and tracked with property tuples as the story progresses. The result: a character who is introduced as a thirty-year-old with straw-blonde hair in Chapter 1 still looks like a thirty-year-old with straw-blonde hair in Chapter 12, and Arthur Dent's house is the *same* house every time the narrative returns to it.
+
+<p align="center">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/b868e0ec-8fa1-437f-ccb8-7bc79e62f300/public" alt="The spiral staircase in Silo" width="260">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/b0674ddf-c77a-499e-83c9-782313f4c700/public" alt="Ford Prefect — Hitchhiker's Guide to the Galaxy" width="260">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/9cca17b5-87cc-4435-fea8-66b2d09fae00/public" alt="Arthur Dent's house — Hitchhiker's Guide to the Galaxy" width="260">
+</p>
+
+<p align="center">
+  <em>The spiral staircase in <strong>Silo</strong> • Ford Prefect from <strong>Hitchhiker's Guide to the Galaxy</strong> • Arthur Dent's house from <strong>Hitchhiker's Guide to the Galaxy</strong></em>
+</p>
+
+---
+
+### Vivid scenes
+
+The pipeline decomposes each chapter into ~15-second scenes — camera angle, lighting, mood, character blocking, location — and produces a full storyboard entry for each one. Every scene is timestamped against the audiobook narration, so the imagery you see on screen matches the sentence you're hearing, not the paragraph around it.
+
+<p align="center">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/ce442472-78db-4783-7a32-164d9fdf9a00/public" alt="Scene from Consider Phlebas" width="400">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/5de12849-e188-4c67-dd29-5dbac5fbfd00/public" alt="Scene from Consider Phlebas" width="400">
+</p>
+
+<p align="center">
+  <em>Scenes from Iain M. Banks' <strong>Consider Phlebas</strong></em>
+</p>
+
+---
+
+### Your Story, your style
+
+**You tell Visibl what world you want to live inside.** Type a phrase — "Wes Anderson film", "Cyberpunk 2077", "Studio Ghibli", "manga", "stained glass" — and a ControlNet pass restyles every scene in the book to match, while preserving the underlying composition, characters, and blocking. Same novel, same narration, same story beats — a completely different visual universe. Nothing is hardcoded: one pipeline, driven by a few words of user input, works across any book and any aesthetic.
+
+Same character, three worlds — Linda Lee from *Neuromancer* as a Wes Anderson character, a Cyberpunk 2077 street kid, and a Studio Ghibli heroine:
+
+<p align="center">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/19bff4d8-e26c-42e9-af4f-b9e238061f00/public" alt="Linda Lee — Wes Anderson style" width="260">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/dee9a142-1a79-416c-e026-078605efae00/public" alt="Linda Lee — Cyberpunk 2077 style" width="260">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/a60414e5-d45e-4540-3a0b-b3ce7d898d00/public" alt="Linda Lee — Studio Ghibli style" width="260">
+</p>
+
+<p align="center">
+  <em>Linda Lee, <strong>Neuromancer</strong> — Wes Anderson • Cyberpunk 2077 • Studio Ghibli</em>
+</p>
+
+And the same mechanism applied across wildly different books — cyberpunk as a Wes Anderson diorama, space opera as Japanese manga, scripture as a stained-glass window:
+
+<p align="center">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/d4f9d505-b573-41b2-c361-eb6a3a0af300/public" alt="Shadowpunk Revolution — Wes Anderson style" width="220">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/3e15f4ec-45a3-4d82-461a-d1a807bded00/public" alt="Consider Phlebas — Manga style" width="220">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/6142d026-fd4d-4995-7217-d64768e21d00/public" alt="Consider Phlebas — Manga style" width="220">
+  <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/7ee0da87-0139-4fd9-c355-67c76b725400/public" alt="The Bible — Stained glass style" width="220">
+</p>
+
+<p align="center">
+  <em>Wes Anderson <strong>Shadowpunk Revolution</strong> • Manga <strong>Consider Phlebas</strong> ×2 • Stained glass <strong>The Bible</strong></em>
+</p>
+
+---
+
+### Ambient mode — glance, don't stare
+
+Audiobooks are for *listening* — you shouldn't have to stare at a screen. Visibl pushes the current scene to your lock screen and "now playing" album art, so a glance tells you who's speaking, what they look like, and where they are.
+
+<p align="center">
+  <img src="https://visibl.ai/lockscreengroup_1.png" alt="Lock screen album art updating during playback" width="600">
+</p>
 
 ---
 
@@ -63,7 +151,7 @@ The pipeline consists of several stages that transform text into synchronized vi
 Using a lightweight language model, we extract characters and locations from text chunks. This creates the foundational scene graph that drives all visualization.
 
 <details>
-<summary>Implementation Details</summary>
+<summary><b><u>Expand implementation details</u></b></summary>
 
 - Model: `deepseek-v3`
 - Processing: ~512-token chunks with no overlap
@@ -91,7 +179,7 @@ In my younger and more vulnerable years my father gave me some advice that I've 
 Multi-pass reasoning model groups entity references ("Harry" = "Potter" = "The Boy Who Lived"). Critical for maintaining visual consistency across scenes.
 
 <details>
-<summary>Implementation Details</summary>
+<summary><b><u>Expand implementation details</u></b></summary>
 
 - Two-stage process: intra-chapter then inter-chapter resolution
 - Model: `gpt-5-mini`
@@ -170,7 +258,7 @@ Multi-pass reasoning model groups entity references ("Harry" = "Potter" = "The B
 Entities aren't static - we track state changes through property tuples (character: appearance, injuries). This enables visual progression throughout the narrative.
 
 <details>
-<summary>Implementation Details</summary>
+<summary><b><u>Expand implementation details</u></b></summary>
 
 - First pass: Entity + full chapter text → generate comprehensive tuples for single entity
 - Second pass: Compare with previous chapter tuples using reasoning model
@@ -250,7 +338,7 @@ Entities aren't static - we track state changes through property tuples (charact
 Converts entity property tuples into rich visual descriptions ready for diffusion models.
 
 <details>
-<summary>Implementation Details</summary>
+<summary><b><u>Expand implementation details</u></b></summary>
 
 - Entity tuples → visual description generation
 - Only requires tuples from prior steps
@@ -310,7 +398,7 @@ Converts entity property tuples into rich visual descriptions ready for diffusio
 Chunks text into ~15-second scenes synchronized with audio narration. Handles pacing, transitions, and narrative structure.
 
 <details>
-<summary>Implementation Details</summary>
+<summary><b><u>Expand implementation details</u></b></summary>
 
 - Processing: ~2048-token chunks with no overlap
 - Creative LLM chunks text into storyboard-style scenes
@@ -366,7 +454,7 @@ Chunks text into ~15-second scenes synchronized with audio narration. Handles pa
 Finally, use our prompt with a diffusion model
 
 <details>
-<summary>Implementation Details</summary>
+<summary><b><u>Expand implementation details</u></b></summary>
 
 - Model: `imagen4`
 
@@ -390,7 +478,7 @@ Finally, use our prompt with a diffusion model
 Allows artistic control while maintaining structural accuracy. Users can define visual style without breaking narrative coherence.
 
 <details>
-<summary>Implementation Details</summary>
+<summary><b><u>Expand implementation details</u></b></summary>
 
 - LLM used to take user input and convert to directions a controlnet model can accept
 - Model: `seededit-3`
