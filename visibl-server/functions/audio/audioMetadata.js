@@ -73,6 +73,8 @@ async function getMetaData(uid, sku, path) {
 function getAudioPath({uid, sku}) {
   if (uid === "admin") {
     return `Catalogue/Raw/${sku}.m4b`;
+  } else if (sku.startsWith("CSTM")) {
+    return `Catalogue/Custom/Raw/${sku}.m4b`;
   } else {
     return `UserData/${uid}/Uploads/Raw/${sku}.m4b`;
   }

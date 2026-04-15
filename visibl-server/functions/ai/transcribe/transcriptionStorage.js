@@ -14,6 +14,11 @@ function getTranscriptionsPath({uid, sku, chapter, identifier = null}) {
       `Catalogue/Processed/${sku}/${sku}-transcriptions${identifier ? `-${identifier}` : ""}.json` :
       `Catalogue/Processed/${sku}/${sku}-transcriptions-${chapter}${identifier ? `-${identifier}` : ""}.json`;
   }
+  if (sku.startsWith("CSTM")) {
+    return chapter === undefined ?
+      `Catalogue/Custom/Processed/${sku}/${sku}-transcriptions${identifier ? `-${identifier}` : ""}.json` :
+      `Catalogue/Custom/Processed/${sku}/${sku}-transcriptions-${chapter}${identifier ? `-${identifier}` : ""}.json`;
+  }
   return chapter === undefined ?
     `UserData/${uid}/Uploads/Processed/${sku}/${sku}-transcriptions${identifier ? `-${identifier}` : ""}.json` :
     `UserData/${uid}/Uploads/Processed/${sku}/${sku}-transcriptions-${chapter}${identifier ? `-${identifier}` : ""}.json`;
@@ -39,7 +44,7 @@ async function saveUncorrectedTranscriptions({uid, sku, transcriptions, identifi
  * @param {string} uid - User ID
  * @param {string} sku - Book SKU
  * @param {number} chapter - Chapter number (optional)
- * @return {Object} The transcriptions object
+ * @return {Promise<Object>} The transcriptions object
  */
 async function loadTranscriptions({uid, sku, chapter}) {
   const transcriptionPath = getTranscriptionsPath({uid, sku, chapter});

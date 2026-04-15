@@ -1,5 +1,5 @@
 /* eslint-disable require-jsdoc */
-import {onCall, onRequest} from "firebase-functions/v2/https";
+import {onCall, onRequest, HttpsError} from "firebase-functions/v2/https";
 import {validateOnCallAuth, validateOnRequestAdmin} from "../auth/auth.js";
 import logger from "../util/logger.js";
 import {firebaseFnConfig, firebaseHttpFnConfig} from "../config/config.js";
@@ -19,6 +19,7 @@ import {
 } from "../storage/realtimeDb/catalogue.js";
 
 import {styleScenesWithQueue, createStyle} from "../ai/images/style/index.js";
+import {checkUserRateLimit} from "../storage/realtimeDb/userRateLimiter.js";
 
 import {
   compressImage,
@@ -73,9 +74,20 @@ export const v1addStyle = onCall({
   minInstances: 1,
   memory: "512MiB",
 }, async (context) => {
-  const {uid, data} = await validateOnCallAuth(context);
-  logger.debug(`v1addStyle: Adding style ${JSON.stringify(data)}`);
-  return await createStyle({uid, ...data});
+  try {
+    const {uid, data} = await validateOnCallAuth(context);
+    await checkUserRateLimit({uid, action: "addStyle"});
+    logger.debug(`v1addStyle: Adding style ${JSON.stringify(data)}`);
+    return await createStyle({uid, ...data});
+  } catch (error) {
+    logger.error(`v1addStyle error: ${error.message}`);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    // Use the error's code if it's a valid HttpsError code, otherwise "internal"
+    const code = error.code === "resource-exhausted" ? "resource-exhausted" : "internal";
+    throw new HttpsError(code, error.message || "An error occurred while adding style", error.details);
+  }
 });
 
 export const v1AdminStyleScenes = onRequest(firebaseHttpFnConfig, async (req, res) => {

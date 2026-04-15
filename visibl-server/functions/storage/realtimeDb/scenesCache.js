@@ -5,6 +5,7 @@ import {sanitizeSceneForCache} from "../../util/sceneHelpers.js";
 import {createSceneTimeIndex} from "./scenesTimeline.js";
 import {catalogueGetRtdb} from "./catalogue.js";
 import logger from "../../util/logger.js";
+import {sceneMetadataCache, cacheKeys} from "../../util/memoryCache.js";
 function sceneToDbRef({sceneId}) {
   return `scenes/${sceneId}`;
 }
@@ -60,6 +61,9 @@ async function storeSceneInCacheFromMemory({sceneId, sceneData}) {
     const sanitizedData = sanitizeSceneForCache(sceneData, sceneId);
     await storeData({ref: dbRef, data: sanitizedData});
 
+    // Update in-memory cache with fresh data
+    sceneMetadataCache.set(cacheKeys.scenes(sceneId), sanitizedData);
+
     // Create time index for efficient lookups (will handle invalid data gracefully)
     await createSceneTimeIndex({sceneId});
   } catch (error) {
@@ -69,9 +73,30 @@ async function storeSceneInCacheFromMemory({sceneId, sceneData}) {
   }
 }
 
-async function getScenesFromCache({sceneId}) {
+async function getScenesFromCache({sceneId, forceRefresh = false}) {
+  // Check in-memory cache first (unless forceRefresh is requested)
+  if (!forceRefresh) {
+    const cached = sceneMetadataCache.get(cacheKeys.scenes(sceneId));
+    if (cached) {
+      logger.debug(`getScenesFromCache: Cache hit for scene ${sceneId}`);
+      return cached;
+    }
+  } else {
+    // Clear the cache entry when forcing refresh
+    sceneMetadataCache.delete(cacheKeys.scenes(sceneId));
+  }
+
+  // Fetch from RTDB
   const dbRef = sceneToDbRef({sceneId});
-  return await getData({ref: dbRef});
+  const scenes = await getData({ref: dbRef});
+
+  // Store in cache for subsequent calls
+  if (scenes) {
+    sceneMetadataCache.set(cacheKeys.scenes(sceneId), scenes);
+    logger.debug(`getScenesFromCache: Cached scenes for ${sceneId}`);
+  }
+
+  return scenes;
 }
 
 async function deleteSceneFromCache({styleId, sceneId, sku}) {
@@ -104,6 +129,8 @@ async function deleteSceneFromCache({styleId, sceneId, sku}) {
         }
       }
     }
+    // Invalidate in-memory cache since scene data changed
+    sceneMetadataCache.delete(cacheKeys.scenes(sceneId));
     logger.info(`Deleted styleId ${styleId} from all scenes in ${sceneId}`);
     return sceneId;
   }
@@ -143,8 +170,8 @@ async function storeChapterSceneInCache({sceneId, chapter, chapterScenes}) {
 
     await storeData({ref: chapterRef, data: sanitizedChapterScenes});
 
-    // Don't store individual scenes separately to avoid duplication
-    // The array at the chapter level is sufficient
+    // Invalidate full scene cache since chapter data changed
+    sceneMetadataCache.delete(cacheKeys.scenes(sceneId));
 
     logger.info(`Stored ${chapterScenes.length} scenes for chapter ${chapter} in cache`);
   } catch (error) {
@@ -186,6 +213,9 @@ async function updateSceneImageUrl({defaultSceneId, styleId, styleTitle, chapter
         },
       },
     });
+
+    // Invalidate full scene cache since scene data changed
+    sceneMetadataCache.delete(cacheKeys.scenes(defaultSceneId));
 
     logger.info(`updateSceneImageUrl: Updated scene image URLs for scene ${sceneNumber} in chapter ${chapter} of ${defaultSceneId} with styleId ${styleId} and title ${styleTitle}`);
   } catch (error) {

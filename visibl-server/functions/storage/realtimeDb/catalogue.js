@@ -90,8 +90,15 @@ async function catalogueBatchAddRtdb(items) {
   return addedItems;
 }
 
-async function albumArtUrl({sku}) {
-  const path = `Catalogue/Processed/${sku}/${sku}.jpg`;
+async function albumArtUrl({sku, uid="admin"}) {
+  let path;
+  if (uid === "admin") {
+    path = `Catalogue/Processed/${sku}/${sku}.jpg`;
+  } else if (sku.startsWith("CSTM")) {
+    path = `Catalogue/Custom/Processed/${sku}/${sku}.jpg`;
+  } else {
+    path = `UserData/${uid}/Processed/${sku}/${sku}.jpg`;
+  }
   const stream = await getFileStream({path});
   const filename = `${sku}.jpg`;
   const cdnUrl = await uploadStreamToCloudflare(stream, filename, "thumb");
@@ -291,4 +298,5 @@ export {
   getStylesFromCatalogueRtdb,
   // catalogueMigrate,
   catalogueUpdateRtdbProperty,
+  albumArtUrl,
 };

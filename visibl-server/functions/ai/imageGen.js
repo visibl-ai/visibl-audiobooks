@@ -303,14 +303,27 @@ async function imageGenCurrentTime(req) {
 
   try {
     // Check if scene has time index, create it if missing
-    const hasIndex = await hasTimeIndex(defaultSceneId);
-    if (!hasIndex) {
+    // hasTimeIndex now returns {timeIndex, chapterRanges} if exists, null otherwise
+    let indexData = await hasTimeIndex(defaultSceneId);
+    if (!indexData) {
       logger.info(`Scene ${defaultSceneId} missing time index, creating it now`);
       await createSceneTimeIndex({sceneId: defaultSceneId});
+      // Re-fetch after creation
+      indexData = await hasTimeIndex(defaultSceneId);
+      if (!indexData) {
+        logger.error(`Failed to create time index for scene ${defaultSceneId}`);
+        return;
+      }
     }
 
-    // Get current scene using RTDB time index
-    const currentScene = await getSceneAtTime({sceneId: defaultSceneId, currentTime});
+    const {timeIndex, chapterRanges} = indexData;
+
+    // Get current scene using cached timeIndex (avoids redundant fetch)
+    const currentScene = await getSceneAtTime({
+      sceneId: defaultSceneId,
+      currentTime,
+      cachedTimeIndex: timeIndex,
+    });
     if (!currentScene) {
       logger.warn(`No matching scene found for the given currentTime ${currentTime}`);
       return;
@@ -325,13 +338,15 @@ async function imageGenCurrentTime(req) {
       followingScenes = 1;
     }
 
-    // Get scenes for image generation from RTDB
+    // Get scenes for image generation from RTDB using cached data (avoids redundant fetches)
     // scenes are a list of scenes images should exist for. This will be filtered down.
     const scenes = await getScenesForImageGeneration({
       sceneId: defaultSceneId,
       currentTime,
       precedingScenes,
       followingScenes,
+      cachedTimeIndex: timeIndex,
+      cachedChapterRanges: chapterRanges,
     });
 
     if (!scenes || scenes.length === 0) {

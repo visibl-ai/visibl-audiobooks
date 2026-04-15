@@ -129,7 +129,6 @@ export async function styleImage(params) {
         ...modelConfig.modelParams,
         // Ensure these are set for the API
         enable_base64_output: true,
-        enable_sync_mode: true,
       },
       pollingConfig: {
         initialWait: 8000, // 5 seconds

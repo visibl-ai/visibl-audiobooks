@@ -100,8 +100,8 @@ async function cleanupAudioFiles({uid, sku, chapters}) {
     await deleteLocalFiles(chapters);
   }
 
-  // Delete m4b file for private books only
-  if (uid !== "admin") {
+  // Delete m4b file for private books only (but not custom uploads which are stored in Catalogue)
+  if (uid !== "admin" && !sku.startsWith("CSTM")) {
     // Delete the original m4b file
     const m4bPath = getAudioPath({uid, sku});
     logger.debug(`cleanupAudioFiles: Deleting private m4b file: ${m4bPath}`);

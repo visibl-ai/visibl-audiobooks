@@ -279,7 +279,15 @@ async function connectAAXAuth({uid, aaxUserId}) {
   return {success: true, message: "AAX account connected successfully"};
 }
 
-async function disconnectAAXAuth(uid) {
+
+/**
+ * Disconnects an AAX account from the user.
+ * @param {Object} params - The parameters for the function.
+ * @param {string} params.uid - The UID of the user.
+ * @param {Object} params.data - The data for the function.
+ * @return {Promise<Object>} - The result of the function.
+ */
+async function disconnectAAXAuth({uid, data}) {
   // TODO: A lot more to delete here!
   await deleteImportedList({uid});
   await libraryDeleteAllPrivateItemsRtdb({uid});
@@ -740,6 +748,23 @@ async function formatTranscriptionForLlm({uid, transcription, sku, chapter}) {
   return formattedChunks;
 }
 
+/**
+ * Reset the AAX connection for a user
+ * @param {string} uid - The user ID
+ * @param {string} aaxUserId - The AAX user ID
+ */
+async function resetAAXConnection({uid, aaxUserId}) {
+  // Check previous user of the AAX connection
+  const existingAuth = await aaxGetAuthByAAXIdFirestore({aaxUserId});
+  if (existingAuth && existingAuth.uid !== uid) {
+    // Disconnect previous user
+    await disconnectAAXAuth({uid: existingAuth.uid, data: {aaxUserId}});
+  }
+
+  // Reconnect the current user
+  await connectAAXAuth({uid, aaxUserId});
+}
+
 export {
   aaxPostAuthHook,
   connectAAXAuth,
@@ -751,4 +776,5 @@ export {
   processAAXTranscription,
   updateAAXCLibrary,
   updateMetadata,
+  resetAAXConnection,
 };

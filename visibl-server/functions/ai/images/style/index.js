@@ -18,6 +18,7 @@ import {
 import {
   catalogueGetRtdb,
 } from "../../../storage/realtimeDb/catalogue.js";
+import {recordUserRateLimit} from "../../../storage/realtimeDb/userRateLimiter.js";
 /**
  * Add scenes to the queue for styling with the specified provider
  * @param {Object} params - The parameters object
@@ -133,12 +134,15 @@ async function createStyle({uid, sku, prompt, provider = "seededit3", currentTim
   // Add style to catalogue RTDB
   await catalogueAddStyleRtdb(newStyle);
 
+  // Record rate limit usage after successful creation
+  await recordUserRateLimit({uid, action: "addStyle"});
+
   // Dispatch image generation tasks
   if (currentTime) {
     logger.debug(`New Style: currentTime found, generating scenes at currentTime: ${currentTime}`);
     await dispatchTask({
       functionName: "generateSceneImagesCurrentTime",
-      data: {styleId, currentTime, sku},
+      data: {styleId, currentTime, sku, uid},
     });
   } else {
     logger.warn(`New Style: No currentTime found! Assuming it is 0. This is not supported yet. Client Error!`);

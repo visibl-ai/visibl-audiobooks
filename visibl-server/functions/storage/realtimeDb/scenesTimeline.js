@@ -1,6 +1,7 @@
 /* eslint-disable require-jsdoc */
 import {storeData, getData} from "./database.js";
 import logger from "../../util/logger.js";
+import {sceneMetadataCache, cacheKeys} from "../../util/memoryCache.js";
 
 /**
  * Creates a time-based index for efficient scene lookups
@@ -95,6 +96,10 @@ async function createSceneTimeIndex({sceneId}) {
         data: chapterRanges,
       });
 
+      // Update in-memory cache with fresh data
+      sceneMetadataCache.set(cacheKeys.timeIndex(sceneId), timeIndex);
+      sceneMetadataCache.set(cacheKeys.chapterRanges(sceneId), chapterRanges);
+
       logger.debug(`Created time index for scene ${sceneId} with ${Object.keys(timeIndex).length} entries`);
     } else {
       logger.warn(`createSceneTimeIndex: No valid scenes found to index for sceneId ${sceneId}`);
@@ -109,11 +114,12 @@ async function createSceneTimeIndex({sceneId}) {
  * Gets scene at specific time using time index
  * @param {string} sceneId - The scene ID
  * @param {number} currentTime - Current playback time in seconds
+ * @param {Object} cachedTimeIndex - Optional pre-fetched timeIndex to avoid redundant fetch
  * @return {Object} Scene info with chapter and scene_number
  */
-async function getSceneAtTime({sceneId, currentTime}) {
-  // Get all time indices to find the scene containing currentTime
-  const timeIndex = await getData({
+async function getSceneAtTime({sceneId, currentTime, cachedTimeIndex = null}) {
+  // Use cached timeIndex if provided, otherwise fetch
+  const timeIndex = cachedTimeIndex || await getData({
     ref: `scenesMetadata/${sceneId}/timeIndex`,
   });
 
@@ -199,18 +205,27 @@ async function getScenesFromRTDB({sceneId, scenesToFetch}) {
  * @param {number} currentTime - Current playback time
  * @param {number} precedingScenes - Number of scenes before current
  * @param {number} followingScenes - Number of scenes after current
+ * @param {Object} cachedTimeIndex - Optional pre-fetched timeIndex
+ * @param {Object} cachedChapterRanges - Optional pre-fetched chapterRanges
  * @return {Array} Array of scene objects
  */
-async function getScenesForImageGeneration({sceneId, currentTime, precedingScenes, followingScenes}) {
-  // Get current scene
-  const currentScene = await getSceneAtTime({sceneId, currentTime});
+async function getScenesForImageGeneration({
+  sceneId,
+  currentTime,
+  precedingScenes,
+  followingScenes,
+  cachedTimeIndex = null,
+  cachedChapterRanges = null,
+}) {
+  // Get current scene using cached timeIndex if available
+  const currentScene = await getSceneAtTime({sceneId, currentTime, cachedTimeIndex});
   if (!currentScene) {
     logger.warn(`No scene found for time ${currentTime} in scene ${sceneId}`);
     return [];
   }
 
-  // Get chapter ranges to know boundaries
-  const chapterRanges = await getData({
+  // Use cached chapterRanges if provided, otherwise fetch
+  const chapterRanges = cachedChapterRanges || await getData({
     ref: `scenesMetadata/${sceneId}/chapterRanges`,
   });
 
@@ -277,60 +292,48 @@ async function getScenesForImageGeneration({sceneId, currentTime, precedingScene
 }
 
 /**
- * Checks if a scene has a complete time index for all available chapters
+ * Checks if a scene has a time index
  * @param {string} sceneId - The scene ID
- * @return {boolean} True if time index exists and is complete, false otherwise
+ * @return {Object|null} Returns {timeIndex, chapterRanges} if exists, null otherwise
  */
 async function hasTimeIndex(sceneId) {
   try {
-    // Check if time index exists
+    // Check in-memory cache first
+    const cachedTimeIndex = sceneMetadataCache.get(cacheKeys.timeIndex(sceneId));
+    const cachedChapterRanges = sceneMetadataCache.get(cacheKeys.chapterRanges(sceneId));
+
+    if (cachedTimeIndex && cachedChapterRanges) {
+      logger.debug(`hasTimeIndex: Cache hit for scene ${sceneId}`);
+      return {timeIndex: cachedTimeIndex, chapterRanges: cachedChapterRanges};
+    }
+
+    // Check if time index exists in RTDB
     const timeIndex = await getData({
       ref: `scenesMetadata/${sceneId}/timeIndex`,
     });
 
-    if (!timeIndex) {
-      return false;
+    if (!timeIndex || Object.keys(timeIndex).length === 0) {
+      return null;
     }
 
-    // Check if chapter ranges exist
+    // Check if chapter ranges exist in RTDB
     const chapterRanges = await getData({
       ref: `scenesMetadata/${sceneId}/chapterRanges`,
     });
 
-    if (!chapterRanges) {
-      return false;
+    if (!chapterRanges || Object.keys(chapterRanges).length === 0) {
+      return null;
     }
 
-    // Get the actual scenes from cache to compare
-    const cachedScenes = await getData({
-      ref: `scenes/${sceneId}`,
-    });
+    // Store in cache for subsequent calls
+    sceneMetadataCache.set(cacheKeys.timeIndex(sceneId), timeIndex);
+    sceneMetadataCache.set(cacheKeys.chapterRanges(sceneId), chapterRanges);
+    logger.debug(`hasTimeIndex: Cached timeIndex and chapterRanges for scene ${sceneId}`);
 
-    if (!cachedScenes) {
-      // If no cached scenes, index shouldn't exist either
-      return false;
-    }
-
-    // Check if all chapters in cached scenes are in the index
-    const cachedChapters = Object.keys(cachedScenes)
-        .filter((key) => !isNaN(parseInt(key, 10)))
-        .map((key) => parseInt(key, 10));
-
-    const indexedChapters = Object.keys(chapterRanges)
-        .map((key) => parseInt(key, 10));
-
-    // Check if all cached chapters are indexed
-    for (const chapter of cachedChapters) {
-      if (!indexedChapters.includes(chapter)) {
-        logger.info(`hasTimeIndex: Chapter ${chapter} missing from time index for scene ${sceneId}`);
-        return false;
-      }
-    }
-
-    return true;
+    return {timeIndex, chapterRanges};
   } catch (error) {
     logger.error(`hasTimeIndex: Error checking time index for scene ${sceneId}: ${error.message}`);
-    return false;
+    return null;
   }
 }
 
