@@ -62,7 +62,7 @@ struct GenerateStyleView: View {
         Color.white.opacity(0.001)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onTapGesture {
-                HapticFeedback.shared.trigger(style: .medium)
+                HapticFeedback.trigger(style: .medium)
                 playerCoordinator.selectTab(.bookInfo)
             }
     }
@@ -126,7 +126,7 @@ struct GenerateStyleView: View {
         HStack (alignment: .bottom) {
             HStack (alignment: .center, spacing: 12) {
                 Button(action: {
-                    HapticFeedback.shared.trigger(style: .light)
+                    HapticFeedback.trigger(style: .light)
                     suggestPrompt()
                 }, label: {
                     HStack (spacing: 8) {
@@ -155,7 +155,7 @@ struct GenerateStyleView: View {
                 
                 if prompt != "" {
                     Button(action: {
-                        HapticFeedback.shared.trigger(style: .light)
+                        HapticFeedback.trigger(style: .light)
                         deletePrompt()
                     }, label: {
                         Image(systemName: "trash")
@@ -178,7 +178,7 @@ struct GenerateStyleView: View {
     private var bottomButtons: some View {
         HStack {
             Button(action: {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 isFocused.toggle()
             }) {
                 Image(systemName: isFocused ? "keyboard.chevron.compact.down" : "keyboard")
@@ -242,7 +242,7 @@ private extension GenerateStyleView {
                     "sku": playerViewModel.audiobook.id,
                     "prompt": userPrompt,
                     "userDefault": true,
-                    "currentTime": playerViewModel.currentTime
+                    "currentTime": playerViewModel.currentTime as Any
                 ]
             )
             
@@ -266,7 +266,7 @@ private extension GenerateStyleView {
 
 private extension GenerateStyleView {
     private func signInRequiredAlert() {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: "catalogue_sign_in_required_alert_title".localized,
             alertMessage: "catalogue_sign_in_required_alert_message".localized,
             alertButtons: [

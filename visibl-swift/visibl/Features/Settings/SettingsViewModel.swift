@@ -15,7 +15,7 @@ final class SettingsViewModel: ObservableObject {
         let uid = Auth.auth().currentUser?.uid ?? "No user"
         UIPasteboard.general.string = uid
         
-        HapticFeedback.shared.trigger(style: .light)
+        HapticFeedback.trigger(style: .light)
         Toastify.show(
             style: .success,
             message: "User's UID copied to clipboard"

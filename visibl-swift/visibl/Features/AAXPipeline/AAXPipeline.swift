@@ -38,7 +38,7 @@ import AAXCPlayer
     func startProcessing(
         _ audiobook: AudiobookModel
     ) async {
-        if !audiobook.isAAX {
+        if audiobook.sourceType != .aax {
             return
         }
 

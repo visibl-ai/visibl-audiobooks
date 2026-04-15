@@ -127,7 +127,7 @@ struct AAXConsentView: View {
     private var buttons: some View {
         HStack {
             Button(action: {
-                HapticFeedback.shared.trigger(style: .medium)
+                HapticFeedback.trigger(style: .medium)
                 onDecline()
             }) {
                 Text("aax_consent_decline".localized)
@@ -148,7 +148,7 @@ struct AAXConsentView: View {
             }
             
             Button(action: {
-                HapticFeedback.shared.trigger(style: .medium)
+                HapticFeedback.trigger(style: .medium)
                 onAccept()
             }) {
                 Text("aax_consent_accept".localized)

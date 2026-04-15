@@ -37,7 +37,7 @@ struct AAXCountryPickerView: View {
                 }
             }
             .onTapGesture {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 viewModel.selectedCountryCode = country
             }
         }

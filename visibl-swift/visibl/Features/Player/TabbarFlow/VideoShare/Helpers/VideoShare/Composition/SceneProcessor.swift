@@ -37,9 +37,9 @@ final class SceneProcessor {
         }
 
         // Calculate and log total video duration
-        let totalDuration = scenes.reduce(0.0) { $0 + ($1.endTime - $1.startTime) }
-        let firstSceneStart = scenes.first?.startTime ?? 0
-        let lastSceneEnd = scenes.last?.endTime ?? 0
+        // let totalDuration = scenes.reduce(0.0) { $0 + ($1.endTime - $1.startTime) }
+        // let firstSceneStart = scenes.first?.startTime ?? 0
+        // let lastSceneEnd = scenes.last?.endTime ?? 0
         // print("⏱️ Total video duration: \(totalDuration)s")
         // print("⏱️ Total frames to process: \(totalFrames)")
         // print("⏱️ Timeline span: \(firstSceneStart)s to \(lastSceneEnd)s (book time)")
@@ -228,7 +228,7 @@ final class SceneProcessor {
         // print("  - Expected final time: \(Double(sceneFrames - 1) * frameDuration.seconds)s")
 
         var frameCount = 0
-        var lastProgressLog = -1  // Track last logged progress percentage
+        // var lastProgressLog = -1  // Track last logged progress percentage
 
         // Process frames in batches, yielding control when writer isn't ready
         while frameCount < sceneFrames {

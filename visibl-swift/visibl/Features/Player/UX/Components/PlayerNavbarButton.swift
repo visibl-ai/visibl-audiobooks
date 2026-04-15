@@ -43,7 +43,7 @@ struct PlayerNavbarButton: View {
                     .environment(\.colorScheme, .light)
             } else {
                 Button(action: {
-                    HapticFeedback.shared.trigger(style: .light)
+                    HapticFeedback.trigger(style: .light)
                     action()
                 }) {
                     Text(text)

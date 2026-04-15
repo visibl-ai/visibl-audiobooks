@@ -1,4 +1,4 @@
-# <a href="https://visibl.ai"><img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/e2f040dd-3dda-408b-e767-b5c02ed1ec00/thumb" alt="Visibl" width="32" height="32" style="vertical-align: middle;"> visibl.ai - One Shot Book to Graphic Novel</a>
+# <a href="https://visibl.ai"><img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/e2f040dd-3dda-408b-e767-b5c02ed1ec00/thumb" alt="Visibl" width="32" height="32" style="vertical-align: middle;"> visibl.ai - Fully automated, multi-pass novel-to-graphic-novel pipeline</a>
 <p align="center">
   <strong>Transform fiction novels into user guided visual narratives</strong>
 </p>
@@ -7,13 +7,13 @@
   </video>
 </div>
 <p align="center">
-  <a href="https://testflight.apple.com/join/B3P1abHk">
-    <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/b272a654-2e2b-411c-2561-5c94e50e7f00/thumb" alt="Download for iPhone" width="200">
+  <a href="https://apps.apple.com/app/apple-store/id6754067600?pt=128153441&ct=github&mt=8">
+    <img src="https://imagedelivery.net/tQttKO0JZXPihTOH_rMepA/42f23dfb-043a-4edd-285d-d03aa8106600/thumb" alt="Download for iPhone" width="200">
   </a>
 </p>
 <p align="center">
-  <a href="https://testflight.apple.com/join/B3P1abHk">
-    <img src="https://img.shields.io/badge/TestFlight-Beta-blue?style=flat-square&logo=apple" alt="TestFlight Beta">
+  <a href="https://apps.apple.com/app/apple-store/id6754067600?pt=128153441&ct=github&mt=8">
+    <img src="https://img.shields.io/itunes/v/6754067600?style=flat-square&logo=apple" alt="Download from the App Store">
   </a>
   <a href="https://github.com/visibl-ai/visibl-audiobooks/blob/master/LICENCE.md">
     <img src="https://img.shields.io/badge/License-Apache%202.0-yellow?style=flat-square" alt="Apache 2.0">
@@ -505,7 +505,7 @@ Apache 2.0 - See [LICENSE](LICENCE.md)
 ---
 
 <p align="center">
-  <a href="https://testflight.apple.com/join/B3P1abHk">TestFlight</a> •
+  <a href="https://apps.apple.com/app/apple-store/id6754067600?pt=128153441&ct=github&mt=8">Download Free from the App Store</a> •
   <a href="https://visibl.ai">Website</a> •
   <a href="https://github.com/visibl-ai/visibl-audiobooks/discussions">Discussions</a>
 </p>

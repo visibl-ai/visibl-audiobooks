@@ -38,7 +38,7 @@ struct SettingsView: View {
         VStack {
             ScrollView {
                 ProfileSection() {
-                    HapticFeedback.shared.trigger(style: .light)
+                    HapticFeedback.trigger(style: .light)
                     coordinator.presentSheet(.signIn)
                 }
                 
@@ -66,7 +66,7 @@ struct SettingsView: View {
                 title: "app_appearance".localized,
                 selectedValue: userConfig.selectedAppearance.localizedName
             ) {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 coordinator.presentSheet(.appAppearance)
             }
             
@@ -79,7 +79,7 @@ struct SettingsView: View {
             )
             .onChange(of: userConfig.isHapticTouchEnabled) { oldValue, newValue in
                 if newValue {
-                    HapticFeedback.shared.trigger(style: .light)
+                    HapticFeedback.trigger(style: .light)
                 }
             }
             
@@ -113,7 +113,7 @@ struct SettingsView: View {
                 systemIcon: "hand.thumbsup.fill",
                 title: "rate_app".localized
             ) {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 UIApplication.shared.open(URL(string: Constants.rateAppURL)!)
             }
             
@@ -131,7 +131,7 @@ struct SettingsView: View {
 //                icon: "envelope.fill",
 //                title: "contact_us".localized
 //            ) {
-//                HapticFeedback.shared.trigger(style: .light)
+//                HapticFeedback.trigger(style: .light)
 //                coordinator.presentSheet(.sendMail(""))
 //            }
             
@@ -140,7 +140,7 @@ struct SettingsView: View {
                 title: "join_discord_title".localized,
                 iconSize: 20
             ) {
-                HapticFeedback.shared.trigger(style: .light)
+                HapticFeedback.trigger(style: .light)
                 UIApplication.shared.open(URL(string: Constants.discordServerURL)!)
             }
         }
@@ -197,7 +197,7 @@ struct SettingsView: View {
 
 extension SettingsView {    
     private func batteryDrainAlert() {
-        AlertManager.shared.showAlert(
+        AlertUtil.shared.showAlert(
             alertTitle: "battery_drain_alert_title".localized,
             alertMessage: "battery_drain_alert_message".localized,
             alertButtons: [

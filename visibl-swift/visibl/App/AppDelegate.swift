@@ -74,20 +74,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNot
     }
     
     private func setupNotifications() {
+        // Configure notification center and Firebase Messaging delegates
+        // Note: Permission request is deferred until after user login
+        // See NotificationPermissionManager for permission handling
         UNUserNotificationCenter.current().delegate = self
         Messaging.messaging().delegate = self
-        
-        if !CommandLine.arguments.contains("--uitesting") { // disable notifications request for UI tests
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { success, _ in
-                if success {
-                    print("APNS authorization granted")
-                }
-            }
-            
-            DispatchQueue.main.async {
-                UIApplication.shared.registerForRemoteNotifications()
-            }
-        }
     }
     
     func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {

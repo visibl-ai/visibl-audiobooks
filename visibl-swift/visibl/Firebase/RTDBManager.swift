@@ -29,16 +29,8 @@ final class RTDBManager {
     // MARK: - Singleton
     static let shared = RTDBManager()
     
-    let databaseRef: DatabaseReference
+    let databaseRef: DatabaseReference = FirebaseContainer.shared.db
     private var observers: [String: [DatabaseHandle]] = [:]
-    
-    private init() {
-        Database.database().isPersistenceEnabled = true
-        
-        let database = Database.database(url: Constants.rtdbURL)
-        database.isPersistenceEnabled = true
-        databaseRef = database.reference()
-    }
     
     // MARK: - Observer Methods (Path)
     
@@ -47,24 +39,38 @@ final class RTDBManager {
         type: T.Type,
         onChange: @escaping (DatabaseChange<T>) -> Void
     ) {
+        // print("📡 [RTDB] Subscribing to data changes at: \(path)")
         let ref = databaseRef.child(path)
         var handles: [DatabaseHandle] = []
-        
+
         let addedHandle = ref.observe(.childAdded) { [weak self] snapshot in
+            // var dataSize = 0
+            // if let value = snapshot.value,
+            //    let data = try? JSONSerialization.data(withJSONObject: value) {
+            //     dataSize = data.count
+            // }
+            // print("📥 [RTDB] childAdded \(dataSize) bytes at: \(path)/\(snapshot.key)")
             self?.handleDataSnapshot(snapshot, event: .added, type: type, onChange: onChange)
         }
         handles.append(addedHandle)
-        
+
         let modifiedHandle = ref.observe(.childChanged) { [weak self] snapshot in
+            // var dataSize = 0
+            // if let value = snapshot.value,
+            //    let data = try? JSONSerialization.data(withJSONObject: value) {
+            //     dataSize = data.count
+            // }
+            // print("📥 [RTDB] childChanged \(dataSize) bytes at: \(path)/\(snapshot.key)")
             self?.handleDataSnapshot(snapshot, event: .modified, type: type, onChange: onChange)
         }
         handles.append(modifiedHandle)
-        
+
         let removedHandle = ref.observe(.childRemoved) { [weak self] snapshot in
+            // print("📥 [RTDB] childRemoved at: \(path)/\(snapshot.key)")
             self?.handleDataSnapshot(snapshot, event: .removed, type: type, onChange: onChange)
         }
         handles.append(removedHandle)
-        
+
         observers[path] = handles
     }
     
@@ -75,23 +81,37 @@ final class RTDBManager {
         type: T.Type,
         onChange: @escaping (DatabaseChange<T>) -> Void
     ) -> [DatabaseHandle] {
+        // print("📡 [RTDB] Subscribing to data changes (query)")
         var handles: [DatabaseHandle] = []
-        
+
         let addedHandle = query.observe(.childAdded) { [weak self] snapshot in
+            // var dataSize = 0
+            // if let value = snapshot.value,
+            //    let data = try? JSONSerialization.data(withJSONObject: value) {
+            //     dataSize = data.count
+            // }
+            // print("📥 [RTDB] query childAdded \(dataSize) bytes, key: \(snapshot.key)")
             self?.handleDataSnapshot(snapshot, event: .added, type: type, onChange: onChange)
         }
         handles.append(addedHandle)
-        
+
         let modifiedHandle = query.observe(.childChanged) { [weak self] snapshot in
+            // var dataSize = 0
+            // if let value = snapshot.value,
+            //    let data = try? JSONSerialization.data(withJSONObject: value) {
+            //     dataSize = data.count
+            // }
+            // print("📥 [RTDB] query childChanged \(dataSize) bytes, key: \(snapshot.key)")
             self?.handleDataSnapshot(snapshot, event: .modified, type: type, onChange: onChange)
         }
         handles.append(modifiedHandle)
-        
+
         let removedHandle = query.observe(.childRemoved) { [weak self] snapshot in
+            // print("📥 [RTDB] query childRemoved, key: \(snapshot.key)")
             self?.handleDataSnapshot(snapshot, event: .removed, type: type, onChange: onChange)
         }
         handles.append(removedHandle)
-        
+
         return handles
     }
     
@@ -148,8 +168,17 @@ final class RTDBManager {
         type: T.Type,
         onChange: @escaping (Result<T, Error>) -> Void
     ) -> DatabaseHandle {
+        // print("📡 [RTDB] Subscribing to single object: \(path)")
         let ref = databaseRef.child(path)
         return ref.observe(.value) { snapshot in
+            // var dataSize = 0
+            // if let value = snapshot.value,
+            //    !(value is NSNull),
+            //    let data = try? JSONSerialization.data(withJSONObject: value) {
+            //     dataSize = data.count
+            // }
+            // print("📥 [RTDB] Received \(dataSize) bytes from single object: \(path)")
+
             guard let value = snapshot.value else {
                 return DispatchQueue.main.async { onChange(.failure(DatabaseError.noData)) }
             }
@@ -180,13 +209,57 @@ final class RTDBManager {
         preserveIndices: Bool = true,
         onChange: @escaping (Result<[[T]], Error>) -> Void
     ) -> DatabaseHandle {
+        // print("📡 [RTDB] Subscribing to nested array: \(path)")
         let ref = databaseRef.child(path)
         return ref.observe(.value) { snapshot in
+            // Estimate actual JSON data size
+            // var dataSize = 0
+            // if let value = snapshot.value, !(value is NSNull) {
+            //     if let data = try? JSONSerialization.data(withJSONObject: value) {
+            //         dataSize = data.count
+            //     }
+            // }
+            // let childCount = snapshot.childrenCount
+            // print("📥 [RTDB] Received \(dataSize) bytes (\(childCount) children) from nested: \(path)")
+
             guard let value = snapshot.value else {
                 return DispatchQueue.main.async { onChange(.failure(DatabaseError.noData)) }
             }
 
             if let normalizedArray = FirebaseDataNormalizer.normalizeToNestedArray(value, elementType: elementType, preserveIndices: preserveIndices) {
+                DispatchQueue.main.async {
+                    onChange(.success(normalizedArray))
+                }
+            } else {
+                DispatchQueue.main.async {
+                    onChange(.failure(DatabaseError.decodingError))
+                }
+            }
+        }
+    }
+
+    func observeNormalizedArray<T: Decodable>(
+        at path: String,
+        elementType: T.Type,
+        onChange: @escaping (Result<[T], Error>) -> Void
+    ) -> DatabaseHandle {
+        // print("📡 [RTDB] Subscribing to: \(path)")
+        let ref = databaseRef.child(path)
+        return ref.observe(.value) { snapshot in
+            // Estimate actual JSON data size
+            // var dataSize = 0
+            // if let value = snapshot.value, !(value is NSNull) {
+            //     if let data = try? JSONSerialization.data(withJSONObject: value) {
+            //         dataSize = data.count
+            //     }
+            // }
+            // let childCount = snapshot.childrenCount
+            // print("📥 [RTDB] Received \(dataSize) bytes (\(childCount) children) from: \(path)")
+            guard let value = snapshot.value else {
+                return DispatchQueue.main.async { onChange(.failure(DatabaseError.noData)) }
+            }
+
+            if let normalizedArray = FirebaseDataNormalizer.normalizeToArray(value, elementType: elementType, preserveIndices: false)?.compactMap({ $0 }) {
                 DispatchQueue.main.async {
                     onChange(.success(normalizedArray))
                 }
@@ -475,15 +548,24 @@ extension RTDBManager {
         at path: String,
         completion: @escaping ([SceneModel]) -> Void
     ) -> DatabaseHandle {
-        
+        // print("📡 [RTDB] Subscribing to ordered scenes: \(path)")
+
         let query = databaseRef
             .child(path)
             .queryOrdered(byChild: "startTime")
-        
+
         // Observe value events
         let handle = query.observe(.value) { snapshot in
+            // var dataSize = 0
+            // if let value = snapshot.value, !(value is NSNull),
+            //    let data = try? JSONSerialization.data(withJSONObject: value) {
+            //     dataSize = data.count
+            // }
+            // let childCount = snapshot.childrenCount
+            // print("📥 [RTDB] Received \(dataSize) bytes (\(childCount) scenes) from ordered: \(path)")
+
             var scenes: [SceneModel] = []
-            
+
             // Decode each child as SceneModel
             for child in snapshot.children {
                 if
@@ -493,14 +575,14 @@ extension RTDBManager {
                     scenes.append(scene)
                 }
             }
-            
+
             // Sort by startTime
             scenes.sort { $0.startTime < $1.startTime }
-            
+
             // Return results
             completion(scenes)
         }
-        
+
         // Store the handle internally so we can remove it later
         if var existingHandles = observers[path] {
             existingHandles.append(handle)
@@ -508,7 +590,7 @@ extension RTDBManager {
         } else {
             observers[path] = [handle]
         }
-        
+
         return handle
     }
 }
@@ -516,6 +598,68 @@ extension RTDBManager {
 extension RTDBManager {
     func removeObserver(handle: DatabaseHandle, at path: String) {
         databaseRef.child(path).removeObserver(withHandle: handle)
+    }
+}
+
+// MARK: - Async/Await Helpers
+
+extension RTDBManager {
+    /// Fetch a snapshot from a query using async/await
+    func fetchSnapshot(from query: DatabaseQuery) async throws -> DataSnapshot {
+        try await withCheckedThrowingContinuation { continuation in
+            query.getData { error, snapshot in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let snapshot = snapshot {
+                    continuation.resume(returning: snapshot)
+                } else {
+                    continuation.resume(throwing: DatabaseError.noData)
+                }
+            }
+        }
+    }
+
+    /// Fetch a single publication by key
+    func fetchPublication(key: String, at basePath: String) async throws -> PublicationModel {
+        let path = "\(basePath)/\(key)"
+        return try await withCheckedThrowingContinuation { continuation in
+            readDataFromPath(from: path, type: PublicationModel.self) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+
+    /// Fetch all child keys from a query (lightweight - just IDs)
+    func fetchAllChildKeys(from query: DatabaseQuery) async throws -> [String] {
+        let snapshot = try await fetchSnapshot(from: query)
+
+        var keys: [String] = []
+        for child in snapshot.children.allObjects {
+            if let childSnapshot = child as? DataSnapshot {
+                keys.append(childSnapshot.key)
+            }
+        }
+
+        return keys
+    }
+
+    /// Fetch multiple publications by their keys in parallel
+    func fetchPublications(keys: [String], at basePath: String) async throws -> [PublicationModel] {
+        try await withThrowingTaskGroup(of: PublicationModel?.self) { group in
+            for key in keys {
+                group.addTask {
+                    try? await self.fetchPublication(key: key, at: basePath)
+                }
+            }
+
+            var publications: [PublicationModel] = []
+            for try await publication in group {
+                if let publication = publication {
+                    publications.append(publication)
+                }
+            }
+            return publications
+        }
     }
 }
 

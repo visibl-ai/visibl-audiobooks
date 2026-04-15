@@ -49,7 +49,7 @@ struct SceneCell: View {
     private var scenePrompt: some View {
         if let prompt = scene.prompt {
             Button(action: {
-                HapticFeedback.shared.trigger(style: .soft)
+                HapticFeedback.trigger(style: .soft)
                 showPrompt(scene)
             }) {
                 VStack (alignment: .leading, spacing: 12) {

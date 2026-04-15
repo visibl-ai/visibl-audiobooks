@@ -13,7 +13,7 @@ struct PlayerNavbarTitle: View {
     
     var body: some View {
         Button(action: {
-            HapticFeedback.shared.trigger(style: .light)
+            HapticFeedback.trigger(style: .light)
             action()
         }) {
             Text(text)

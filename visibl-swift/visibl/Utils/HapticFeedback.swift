@@ -7,12 +7,11 @@
 
 import SwiftUI
 
-final class HapticFeedback {
-    static let shared = HapticFeedback()
-    
-    func trigger(style: UIImpactFeedbackGenerator.FeedbackStyle) {
+struct HapticFeedback {
+    static func trigger(style: UIImpactFeedbackGenerator.FeedbackStyle) {
         guard UserConfigurations.shared.isHapticTouchEnabled else { return }
         let generator = UIImpactFeedbackGenerator(style: style)
+        generator.prepare()
         generator.impactOccurred()
     }
 }

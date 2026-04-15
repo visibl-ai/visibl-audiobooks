@@ -116,10 +116,16 @@
 "catalogue_aax_placeholder_subtitle" = "Please wait while your library is being synchronized. You'll be notified when it's complete.";
 "catalogue_aax_connect_title" = "Import Books";
 "catalogue_aax_connect_subtitle" = "Connect your external library to import books and start using them with Visibl.";
-"catalogue_aax_connect_btn" = "Connect";
+"import_btn" = "Import";
 
 "catalogue_source_type_visibl" = "Visibl";
-"catalogue_source_type_aac" = "Imported";
+"catalogue_source_type_aax" = "Imported";
+"catalogue_source_type_uploaded" = "Uploaded";
+
+// Catalogue Error/Empty States
+"catalogue_error_title" = "Something went wrong";
+"catalogue_empty_title" = "No publications available";
+"catalogue_empty_subtitle" = "Check back later for new content";
 
 // Publication Details Screen Alerts
 
@@ -367,3 +373,35 @@
 "catalogue_refresh_books_added" = "Updated successfully! %d book(s) added";
 "catalogue_refresh_books_removed" = "Updated successfully! %d book(s) removed";
 "catalogue_refresh_no_changes" = "Updated successfully! No changes in your library";
+
+// MARK: - Import
+
+// Import View
+"import_title" = "Choose Import Method";
+"import_subtitle" = "Select how you want to import your audiobooks";
+
+// Import Options
+"import_option_aax_title" = "Connect AAX Account";
+"import_option_aax_subtitle" = "Connect your Audible AAX library";
+"import_option_file_title" = "Import Audio File";
+"import_option_file_subtitle" = "M4A or M4B files supported";
+"import_option_link_title" = "Import from URL";
+"import_option_link_subtitle" = "Paste a direct link to M4A or M4B";
+
+// Import Link Alert
+"import_link_alert_title" = "Add Link";
+"import_link_alert_message" = "Add a new link to M4A or M4B file";
+
+// Upload Progress
+"import_upload_title" = "Uploading Audiobook";
+"import_upload_preparing" = "Preparing upload...";
+"import_upload_uploading" = "Uploading file...";
+"import_upload_processing" = "Processing...";
+
+// Import Toast Messages
+"import_success_message" = "Audiobook uploaded successfully. Once processed, it will be available in your library.";
+"import_link_success_message" = "Audiobook added to import queue. Once processed, it will be available in your library.";
+"import_failed_message" = "Upload failed. Please check your connection and try again.";
+"import_link_failed_message" = "Failed to add audiobook";
+"import_no_chapters_error" = "This audiobook doesn't contain chapter information and cannot be imported.";
+"import_invalid_file_error" = "Unable to read audiobook metadata. Please ensure the file is a valid M4B/M4A audiobook.";

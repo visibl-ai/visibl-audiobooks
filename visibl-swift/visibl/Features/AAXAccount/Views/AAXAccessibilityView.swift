@@ -60,7 +60,7 @@ struct AAXAccessibilityView: View {
                 }
                 .padding(.top, 12)
                 .onTapGesture {
-                    HapticFeedback.shared.trigger(style: .medium)
+                    HapticFeedback.trigger(style: .medium)
                     isAccessibilityEnabled.toggle()
                 }
             }
@@ -74,7 +74,7 @@ struct AAXAccessibilityView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(action: {
-                    HapticFeedback.shared.trigger(style: .light)
+                    HapticFeedback.trigger(style: .light)
                     dismiss()
                 }) {
                     Image(systemName: "xmark")

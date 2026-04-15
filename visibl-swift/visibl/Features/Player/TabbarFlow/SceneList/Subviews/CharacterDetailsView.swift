@@ -38,7 +38,7 @@ struct CharacterDetailsView: View {
                 }
             )
             .onTapGesture {
-                HapticFeedback.shared.trigger(style: .soft)
+                HapticFeedback.trigger(style: .soft)
                 resetState()
             }
             .onAppear {

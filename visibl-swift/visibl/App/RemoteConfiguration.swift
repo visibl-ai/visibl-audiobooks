@@ -14,10 +14,3 @@ final class RemoteConfiguration: ObservableObject {
     @Published var currentAppVersion: String?
     @Published var newVersionURLString: String?
 }
-
-struct AAXProviderModel: Codable {
-    let name: String
-    let company: String
-    let logo: String
-    let consentURL: String
-}

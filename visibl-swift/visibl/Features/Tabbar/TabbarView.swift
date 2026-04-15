@@ -13,7 +13,7 @@ struct TabbarView: View {
     private let catalogueCoordinator: Coordinator
     private let settingsCoordinator: Coordinator
     private let diContainer: DIContainer
-    
+
     init(
         appCoordinator: AppCoordinator,
         diContainer: DIContainer
@@ -50,10 +50,7 @@ struct TabbarView: View {
             
             // MARK: - Catalogue
             NavigationStack(path: $appCoordinator.catalogueNavigationPath) {
-                CatalogueView(
-                    coordinator: catalogueCoordinator,
-                    diContainer: diContainer
-                )
+                CatalogueView(coordinator: catalogueCoordinator, diContainer: diContainer)
                 .toolbarBackground(.visible, for: .tabBar)
                 .navigationDestination(for: NavigationDestination.self) { destination in
                     destinationView(
@@ -90,7 +87,7 @@ struct TabbarView: View {
         }
         .tint(.customPrimary)
         .onChange(of: appCoordinator.selectedTab) { new, old in
-            HapticFeedback.shared.trigger(style: .light)
+            HapticFeedback.trigger(style: .light)
         }
         .sheet(item: $appCoordinator.activeSheet) { destination in
             modalDestinationView(for: destination, coordinator: getCurrentTabCoordinator())
@@ -108,9 +105,9 @@ private extension TabbarView {
         switch destination {
         case .publicationDetails(let publication):
             PublicationDetailsView(
-                publication: publication,
                 coordinator: coordinator,
-                diContainer: diContainer
+                diContainer: diContainer,
+                publication: publication
             )
         }
     }
@@ -156,6 +153,11 @@ private extension TabbarView {
                 Text("Mail cannot be sent")
                     .presentationCornerRadius(18)
             }
+        case .importOptions:
+            ImportView(
+                coordinator: getCurrentTabCoordinator(),
+                diContainer: diContainer
+            )
         }
     }
 }

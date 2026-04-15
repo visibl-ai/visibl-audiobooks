@@ -14,23 +14,22 @@ typealias ChaptersArray = [[SceneModel]]
 typealias StylesCollection = [String: StyleModel]
 
 @Observable final class SceneStylesViewModel {
-    let diContainer: DIContainer
     var audiobook: AudiobookModel
-    var chapters: ChaptersArray = []
     var currentStyleId: String?
     var currentTimeLowRes: Double?
 
     private let player: AudioPlayerManager
-    private let databaseManager = RTDBManager.shared
-    private var scenesObserverHandle: DatabaseHandle?
+    private let userLibraryObserver: UserLibraryObserver
+    private let sceneDataService = SceneDataService.shared
     private var subscriptions = Set<AnyCancellable>()
+
+    var chapters: ChaptersArray {
+        sceneDataService.chapters
+    }
 
     var styles: StylesCollection? { publication?.styles ?? [:] }
 
-    var publication: PublicationModel? {
-        diContainer.catalogueObserver.publications.first { $0.id == audiobook.publication.id }
-        ?? diContainer.aaxCatalogueObserver.publications.first { $0.id == audiobook.publication.id }
-    }
+    var publication: PublicationModel? { audiobook.publication }
 
     var sortedStyles: [(key: String, value: StyleModel)] {
         guard let styles = publication?.styles else { return [] }
@@ -40,18 +39,13 @@ typealias StylesCollection = [String: StyleModel]
     init(
         audiobook: AudiobookModel,
         player: AudioPlayerManager,
-        diContainer: DIContainer
+        userLibraryObserver: UserLibraryObserver
     ) {
         self.audiobook = audiobook
         self.player = player
-        self.diContainer = diContainer
+        self.userLibraryObserver = userLibraryObserver
         self.currentTimeLowRes = audiobook.playbackInfo.progressInCurrentResource
         bind()
-        subscribeToSceneList()
-    }
-
-    deinit {
-        unsubscribeFromSceneList()
     }
 }
 
@@ -65,6 +59,17 @@ extension SceneStylesViewModel {
             .sink { [weak self] currentTimeLowRes in
                 guard let self = self else { return }
                 self.currentTimeLowRes = currentTimeLowRes
+            }
+            .store(in: &subscriptions)
+        
+        userLibraryObserver.$audiobooks
+            .compactMap { [weak self] audiobooks -> AudiobookModel? in
+                guard let id = self?.audiobook.id else { return nil }
+                return audiobooks.first { $0.id == id }
+            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] updated in
+                self?.applyUpdatedAudiobook(updated)
             }
             .store(in: &subscriptions)
     }
@@ -160,11 +165,7 @@ extension SceneStylesViewModel {
     }
 
     private var currentChapter: [SceneModel]? {
-        guard audiobook.playbackInfo.currentResourceIndex < chapters.count else {
-            return nil
-        }
-
-        let chapter = chapters[audiobook.playbackInfo.currentResourceIndex]
+        let chapter = sceneDataService.currentChapterScenes
         return chapter.isEmpty ? nil : chapter
     }
 
@@ -202,42 +203,6 @@ extension SceneStylesViewModel {
     }
 }
 
-// MARK: - RTDB Scene List Subscription
-
-extension SceneStylesViewModel {
-    private func subscribeToSceneList() {
-        guard let styleId = audiobook.publication.defaultSceneId else {
-            print("❌ No default scene list id found")
-            return
-        }
-
-        let path = "scenes/\(styleId)"
-
-        scenesObserverHandle = databaseManager.observeNormalizedNestedArray(at: path, elementType: SceneModel.self, preserveIndices: true) { [weak self] result in
-            switch result {
-            case .success(let data):
-                DispatchQueue.main.async {
-                    self?.chapters = data
-                }
-            case .failure(let error):
-                print("❌ - Error: \(error)")
-            }
-        }
-    }
-
-    private func unsubscribeFromSceneList() {
-        if let handle = scenesObserverHandle {
-            guard let styleId = audiobook.publication.defaultSceneId else {
-                print("❌ No default scene list id found")
-                return
-            }
-
-            let path = "scenes/\(styleId)"
-            databaseManager.removeObserver(handle: handle, at: path)
-            scenesObserverHandle = nil
-        }
-    }
-}
 
 
 // MARK: - Current Style Update Logic
@@ -328,5 +293,21 @@ extension SceneStylesViewModel {
                 chapterData: chapters
             )
         }
+    }
+}
+
+// MARK: - Audiobook Updates
+
+private extension SceneStylesViewModel {
+    func applyUpdatedAudiobook(_ updated: AudiobookModel) {
+        // Only override chapter index if service has active subscription
+        // Otherwise trust incoming data (e.g., fresh launch before setupPlayer is called)
+        if sceneDataService.hasActiveSubscription {
+            let localChapterIndex = sceneDataService.currentChapterIndex
+            if updated.playbackInfo.currentResourceIndex != localChapterIndex {
+                updated.userLibraryItem.clientData.playbackInfo.currentResourceIndex = localChapterIndex
+            }
+        }
+        audiobook = updated
     }
 }

@@ -55,7 +55,7 @@ final class ImagePrefetchManager {
         let window = windowScenes(around: currentSceneIndex, in: chapter, radius: radius)
 
         // Single summary log
-        let sceneNumbers = window.map { String($0.sceneNumber) }.joined(separator: ", ")
+        // let sceneNumbers = window.map { String($0.sceneNumber) }.joined(separator: ", ")
         // print("🎨 [Prefetch] Ch\(chapterIndex) Scene\(currentSceneIndex): scenes [\(sceneNumbers)]")
 
         prefetchWindowScenes(window: window, chapter: chapter, styleIds: styleIds, baseIndex: currentSceneIndex)

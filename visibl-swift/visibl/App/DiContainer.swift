@@ -12,16 +12,16 @@ final class DIContainer {
         AudioPlayerManager()
     }()
     
-    private(set) lazy var catalogueObserver: CatalogueObserver = {
-        CatalogueObserver()
-    }()
-    
+//    private(set) lazy var catalogueService: CatalogueManager = {
+//        CatalogueManager()
+//    }()
+//
+//    private(set) lazy var aaxCatalogueService: AAXCatalogueManager = {
+//        AAXCatalogueManager()
+//    }()
+
     private(set) lazy var userLibraryObserver: UserLibraryObserver = {
         UserLibraryObserver()
-    }()
-    
-    private(set) lazy var aaxCatalogueObserver: AAXCatalogueObserver = {
-        AAXCatalogueObserver()
     }()
     
     private(set) lazy var aaxAuthDataObserver: AAXAuthDataObserver = {

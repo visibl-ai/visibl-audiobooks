@@ -15,7 +15,7 @@ struct CharacterCell: View {
     
     var body: some View {
         Button(action: {
-            HapticFeedback.shared.trigger(style: .soft)
+            HapticFeedback.trigger(style: .soft)
             action(character)
         }) {
             VStack(spacing: 6) {

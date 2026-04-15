@@ -33,7 +33,7 @@ final class AudioURLManager {
 
     func getURL(for audiobook: AudiobookModel) async -> Result<AudioURLResult, AudioURLError> {
         // Non-AAX audiobook - return direct URL with backup
-        guard audiobook.isAAX else {
+        guard audiobook.sourceType == .aax else {
             guard let primaryURL = audiobook.userLibraryItem.content?.m4b?.url else {
                 return .failure(.noValidURL)
             }

@@ -22,7 +22,7 @@ struct AAXBannerView: View {
             }
             
             Button(action: action) {
-                Text("catalogue_aax_connect_btn".localized)
+                Text("import_btn".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
@@ -43,7 +43,5 @@ struct AAXBannerView: View {
                     .strokeBorder(.gray.gradient.opacity(0.24), lineWidth: 0.5)
             }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 20)
     }
 }

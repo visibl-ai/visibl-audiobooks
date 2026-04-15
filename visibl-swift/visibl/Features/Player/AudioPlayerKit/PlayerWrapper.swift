@@ -41,6 +41,9 @@ public final class PlayerWrapper: NSObject, PlayerProtocol {
     // Track if initial seek has completed to prevent emitting 0.0 during setup
     private var hasCompletedInitialSeek = false
 
+    // Guard against multiple playbackFinished emissions per chapter
+    private var hasEmittedPlaybackFinished = false
+
     // Cache for preventing redundant updates
     private var lastEmittedTime: TimeInterval = -1
     private var lastEmittedHighFreqTime: TimeInterval = -1
@@ -124,6 +127,9 @@ public final class PlayerWrapper: NSObject, PlayerProtocol {
 
         // Reset initial seek flag
         hasCompletedInitialSeek = false
+
+        // Reset playback finished flag for new chapter
+        hasEmittedPlaybackFinished = false
 
         // Set loading state
         stateSubject.send(.loading)
@@ -550,12 +556,16 @@ public final class PlayerWrapper: NSObject, PlayerProtocol {
     }
     
     private func handlePlaybackFinished() {
+        guard !hasEmittedPlaybackFinished else { return }
+        hasEmittedPlaybackFinished = true
         pause()
         stateSubject.send(.finished)
         playbackFinishedSubject.send()
     }
-    
+
     private func handleReachedEnd() {
+        guard !hasEmittedPlaybackFinished else { return }
+        hasEmittedPlaybackFinished = true
         pause()
         stateSubject.send(.finished)
         playbackFinishedSubject.send()
