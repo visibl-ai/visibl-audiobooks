@@ -1,5 +1,5 @@
 /**
- * @fileoverview Groq-specific implementation of AiQueue
+ * @fileoverview AllModels-specific implementation of AiQueue
  * Handles Whisper transcription requests with rate limiting
  */
 
@@ -7,30 +7,30 @@ import AiQueue from "./aiQueue.js";
 import {rateLimiters, QUEUE_RETRY_LIMIT} from "./config.js";
 import {aiQueueToUnique, queueUpdateEntries} from "../../storage/firestore/queue.js";
 import logger from "../../util/logger.js";
-import whisper from "../groq/whisper.js";
+import whisper from "../allmodels/whisper.js";
 import {downloadFileFromBucket} from "../../storage/storage.js";
 import {deleteLocalFiles} from "../../storage/storage.js";
 import {flushAnalytics} from "../../analytics/index.js";
 
 /**
- * Queue implementation for Groq Whisper transcription requests
- * Handles rate limiting, batching, and retry logic specific to Groq
+ * Queue implementation for AllModels Whisper transcription requests
+ * Handles rate limiting, batching, and retry logic specific to AllModels
  */
-class GroqQueue extends AiQueue {
+class AllModelsQueue extends AiQueue {
   /**
-   * Creates a new GroqQueue instance
-   * Configures queue with Groq-specific settings including rate limits and model defaults
+   * Creates a new AllModelsQueue instance
+   * Configures queue with AllModels-specific settings including rate limits and model defaults
    */
   constructor() {
-    // Get Groq rate limiters from config
-    const groqRateLimiters = rateLimiters.groq || {};
+    // Get AllModels rate limiters from config
+    const allmodelsRateLimiters = rateLimiters.allmodels || {};
 
     super({
-      queueName: "groq",
-      rateLimiters: groqRateLimiters,
+      queueName: "allmodels",
+      rateLimiters: allmodelsRateLimiters,
       uniqueKeyGenerator: aiQueueToUnique,
-      dispatchFunctionName: "launchGroqQueue",
-      defaultModel: "whisper-large-v3-turbo",
+      dispatchFunctionName: "launchAllmodelsQueue",
+      defaultModel: "groq/whisper-large-v3-turbo",
     });
 
     // Set retry limit
@@ -38,12 +38,12 @@ class GroqQueue extends AiQueue {
   }
 
   /**
-   * Process a single item from the queue using Groq's Whisper API
-   * @param {Object} params - The parameters for the Groq Whisper request
-   * @return {Promise<Object>} The response from Groq Whisper
+   * Process a single item from the queue using AllModels' Whisper API
+   * @param {Object} params - The parameters for the AllModels Whisper request
+   * @return {Promise<Object>} The response from AllModels Whisper
    */
   async processItem({entry}) {
-    const {audioPath, offset, prompt} = entry.params;
+    const {audioPath, offset, prompt, model} = entry.params;
     const fs = await import("fs");
 
     let localPath = audioPath;
@@ -80,6 +80,7 @@ class GroqQueue extends AiQueue {
         offset: offset || 0,
         prompt: prompt || "",
         chapter: audioPath,
+        model: model || this.defaultModel,
         retry: 0, // Don't use internal retry since we handle it at queue level
         distinctId: uid,
         traceId: entry.id,
@@ -119,7 +120,7 @@ class GroqQueue extends AiQueue {
 
   /**
    * Handle retry logic for failed requests
-   * Implements exponential backoff for Groq API failures
+   * Implements exponential backoff for AllModels API failures
    * @param {Object} params - The parameters object
    * @param {Object} params.entry - The failed queue entry
    * @return {Promise<boolean>} Whether the retry was scheduled successfully
@@ -134,7 +135,7 @@ class GroqQueue extends AiQueue {
       // Calculate exponential backoff delay
       const backoffDelay = Math.min(
           1000 * Math.pow(2, entry.retryCount || 0), // Exponential backoff starting at 1 second
-          60000, // Max 1 minute delay for Groq
+          60000, // Max 1 minute delay for AllModels
       );
 
       logger.debug(`Scheduling retry for entry ${entry.id} with backoff ${backoffDelay}ms`);
@@ -154,6 +155,6 @@ class GroqQueue extends AiQueue {
 }
 
 // Create singleton instance
-const groqQueue = new GroqQueue();
+const allmodelsQueue = new AllModelsQueue();
 
-export {groqQueue, GroqQueue};
+export {allmodelsQueue, AllModelsQueue};

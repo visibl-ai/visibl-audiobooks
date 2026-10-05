@@ -4,8 +4,10 @@
 
 import AiQueue from "./aiQueue.js";
 import {rateLimiters, QUEUE_RETRY_LIMIT} from "./config.js";
-import {queueEntryTypeToFunction} from "../fal/fal.js";
+import {queueEntryTypeToFunction, FAL_MODEL_COSTS, FAL_SEEDREAM_TEXT_TO_IMAGE_MODEL} from "../fal/fal.js";
 import logger from "../../util/logger.js";
+import {runImagePostProcessing} from "../images/postProcessImage.js";
+import {captureEvent, flushAnalytics} from "../../analytics/index.js";
 import {moderateImagePrompt} from "../../util/imageHelper.js";
 import {queueUpdateEntries} from "../../storage/firestore/queue.js";
 import {
@@ -61,14 +63,65 @@ class FalQueue extends AiQueue {
     const generateFn = queueEntryTypeToFunction(entry.entryType);
     const params = {
       prompt: entry.params.prompt,
-      model: entry.params.model || "imagen4-ultra",
+      model: entry.params.model || FAL_SEEDREAM_TEXT_TO_IMAGE_MODEL,
       outputPath: entry.params.outputPath || entry.params.outputPathWithoutExtension + ".jpeg",
       outputFormat: entry.params.outputFormat || "jpeg",
       modelParams: entry.params.modelParams || {},
+      promptParam: entry.params.promptParam || "prompt",
     };
 
     logger.debug(`Processing Fal queue item with model: ${params.model}`);
-    return await generateFn(params);
+    const startTime = Date.now();
+    let result;
+    try {
+      result = await generateFn(params);
+    } catch (error) {
+      await this.captureAnalytics({entry, model: params.model, startTime, success: false, errorMessage: error.message});
+      throw error;
+    }
+
+    // Fal generates synchronously, so the RTDB updates that the Wavespeed
+    // webhook performs on callback happen here, right after generation.
+    await runImagePostProcessing({entry, result});
+    await this.captureAnalytics({entry, model: params.model, startTime, success: true, result});
+    return result;
+  }
+
+  /**
+   * Capture an image_generation analytics event. Never throws.
+   * @param {Object} params - The parameters object
+   * @param {Object} params.entry - Queue entry
+   * @param {string} params.model - Fal endpoint id
+   * @param {number} params.startTime - Epoch ms when generation started
+   * @param {boolean} params.success - Whether generation succeeded
+   * @param {Object} [params.result] - Generation result on success
+   * @param {string} [params.errorMessage] - Error message on failure
+   * @return {Promise<void>}
+   */
+  async captureAnalytics({entry, model, startTime, success, result, errorMessage}) {
+    try {
+      const eventProperties = {
+        provider: "fal",
+        model,
+        traceId: entry.id,
+        input: entry.params.prompt,
+        output: success && result ? `Generated image: ${JSON.stringify(result)}` : undefined,
+        latency: Date.now() - startTime,
+        success,
+        error: errorMessage,
+        cost: success ? (FAL_MODEL_COSTS[model] || 0) : 0,
+        entry,
+        sku: entry.params.sku,
+        uid: entry.params.uid,
+        graph_id: entry.params.graphId,
+      };
+      await captureEvent("image_generation", eventProperties, entry.params.uid || "system");
+      await flushAnalytics().catch((err) => {
+        logger.debug(`Analytics flush warning: ${err.message}`);
+      });
+    } catch (error) {
+      logger.debug(`Analytics capture error: ${error.message}`);
+    }
   }
 
   /**

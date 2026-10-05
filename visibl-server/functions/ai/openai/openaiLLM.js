@@ -7,6 +7,7 @@ import {promptListFromParamsList, messagesFromPromptListAndTextList, flattenResu
 import {OPENAI_API_KEY, MOCK_LLM} from "../../config/config.js";
 import {batchDispatchOpenaiRequests} from "../queue/dispatcher.js";
 import {mockApiCall, OpenAIMockResponse} from "./mock.js";
+import {isZodSchema, zodTextFormatFor, jsonSchemaTextFormat, refusalIn} from "./responseFormat.js";
 import {captureEvent, flushAnalytics} from "../../analytics/index.js";
 
 function instructionReplacements({instruction, replacements}) {
@@ -48,7 +49,7 @@ async function openaiLLMRequest(request) {
   const generationConfig = globalPrompt.openAIGenerationConfig;
   const wantsJson = globalPrompt.responseSchema ? true : false;
 
-  logger.debug(`Sending request to OpenAI model ${model} via responses.create.`);
+  logger.debug(`Sending request to OpenAI model ${model} via ${wantsJson && isZodSchema(globalPrompt.responseSchema) ? "responses.parse" : "responses.create"}.`);
   logger.debug(`Instruction: ${instruction.substring(0, 600)}`);
 
   // Store analytics tracking parameters for later use
@@ -77,28 +78,29 @@ async function openaiLLMRequest(request) {
         model: model,
         instructions: instruction,
         input: message,
-        temperature: generationConfig.temperature,
         max_output_tokens: generationConfig.max_tokens,
-        top_p: generationConfig.top_p,
         service_tier: generationConfig.service_tier || "auto",
         store: generationConfig.store || false,
         truncation: generationConfig.truncation || "disabled",
       };
-
-      if (wantsJson) {
-      // in case the schema is edited by another request.
-        const schema = JSON.parse(JSON.stringify(globalPrompt.responseSchema));
-        // logger.debug("Schema:", schema);
-        params.text = {
-          format: {
-            type: "json_schema",
-            name: prompt,
-            schema: schema,
-          },
-        };
+      // Reasoning models take a reasoning effort and reject temperature/top_p.
+      if (generationConfig.reasoning) {
+        params.reasoning = generationConfig.reasoning;
+      } else {
+        params.temperature = generationConfig.temperature;
+        params.top_p = generationConfig.top_p;
       }
 
-      result = await openai.responses.create(params);
+      if (wantsJson && isZodSchema(globalPrompt.responseSchema)) {
+        // Structured Outputs with a Zod schema: responses.parse returns the validated object as output_parsed.
+        params.text = {format: zodTextFormatFor(globalPrompt.responseSchema, prompt)};
+        result = await openai.responses.parse(params);
+      } else {
+        if (wantsJson) {
+          params.text = {format: jsonSchemaTextFormat({responseSchema: globalPrompt.responseSchema, name: prompt})};
+        }
+        result = await openai.responses.create(params);
+      }
     } catch (error) {
       logger.error("Error sending message to OpenAI via responses.create:", error);
       const errorLatencyMs = Date.now() - startTime; // Calculate latency even for errors
@@ -149,6 +151,20 @@ async function openaiLLMRequest(request) {
   const tokensUsed = result.usage?.total_tokens || 0;
   let responseText = "";
 
+  // A response cut short (e.g. max_output_tokens reached) is not a usable answer.
+  if (result.status === "incomplete") {
+    const reason = result.incomplete_details?.reason || "unknown";
+    logger.warn(`OpenAI response incomplete (${reason}) for model ${model}`);
+    return {error: "Incomplete OpenAI response", details: reason, tokensUsed, responseKey};
+  }
+
+  // Structured Outputs report a refusal as its own content item instead of schema output.
+  const refusal = refusalIn(result);
+  if (refusal) {
+    logger.warn(`OpenAI refused the request for model ${model}: ${refusal}`);
+    return {error: "OpenAI refused the request", details: refusal, refusal: true, tokensUsed, responseKey};
+  }
+
   try {
     responseText = result.output_text;
     const latencyMs = Date.now() - startTime; // Calculate actual latency
@@ -195,6 +211,10 @@ async function openaiLLMRequest(request) {
   }
 
   if (wantsJson) {
+    // responses.parse already validated the output against the Zod schema.
+    if (result.output_parsed !== undefined && result.output_parsed !== null) {
+      return {result: result.output_parsed, tokensUsed, responseKey};
+    }
     const parseResult = parseJsonSafely(responseText);
     if (parseResult.error) {
       logger.error("Error trying to parse result JSON from output_text.", parseResult.error);

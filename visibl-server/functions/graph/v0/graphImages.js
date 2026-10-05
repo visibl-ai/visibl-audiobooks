@@ -7,8 +7,10 @@ import {
   storeGraphCharacterImagesRtdb,
   storeGraphLocationImagesRtdb,
 } from "../../storage/realtimeDb/graph.js";
-import {queueAddEntries, dalleQueueToUnique} from "../../storage/firestore/queue.js";
+import {queueAddEntries} from "../../storage/firestore/queue.js";
 import {dispatchTask} from "../../util/dispatch.js";
+import {openaiImageQueueToUnique} from "../../ai/queue/openaiImageQueue.js";
+import globalPrompts from "../../ai/prompts/globalPrompts.js";
 
 /**
  * Generate images for graph nodes (characters or locations) using a queue system
@@ -90,21 +92,30 @@ async function generateGraphNodeImagesWithQueue({graphId, nodeType, uid, sku, vi
     }
 
     // Queue the image generation request
-    const types = ["dalle"];
-    const entryTypes = ["dalle3"];
+    const promptConfig = globalPrompts[`generate${nodeType.charAt(0).toUpperCase() + nodeType.slice(1)}Image`];
+    const {model, ...modelParams} = promptConfig.imageConfig;
+    const prompt = promptConfig.systemInstruction
+        .replace(nodeType === "character" ? "%DESCRIPTION%" : "%LOCATION_NAME%", nodeType === "character" ? nodeData.description : nodeName)
+        .replace(nodeType === "location" ? "%DESCRIPTION%" : "", nodeType === "location" ? nodeData.description : "");
+    const identifier = nodeName.toLowerCase().replace(/\s+/g, "_");
+    const types = ["openaiImage"];
+    const entryTypes = ["generate"];
     const entryParams = [{
+      prompt,
+      model,
+      modelParams,
+      outputPath: `Graphs/${graphId}/${nodeType}s/${identifier}_${Date.now()}.jpeg`,
+      outputFormat: "jpeg",
       graphId,
       nodeType,
       nodeName,
-      description: nodeData.description,
     }];
-    const uniques = [dalleQueueToUnique({
-      type: "dalle",
-      entryType: "dalle3",
+    const uniques = [openaiImageQueueToUnique({
+      type: "openaiImage",
+      entryType: "generate",
       graphId,
-      nodeType,
-      nodeName,
-      retry: true,
+      identifier: `${nodeType}_${identifier}`,
+      chapter: 0,
     })];
 
     await queueAddEntries({
@@ -115,7 +126,7 @@ async function generateGraphNodeImagesWithQueue({graphId, nodeType, uid, sku, vi
     });
 
     await dispatchTask({
-      functionName: "launchDalleQueue",
+      functionName: "launchOpenAiImageQueue",
       data: {},
     });
   }

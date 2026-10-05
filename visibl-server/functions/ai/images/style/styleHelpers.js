@@ -1,5 +1,9 @@
 import {getData} from "../../../storage/realtimeDb/database.js";
 import logger from "../../../util/logger.js";
+import {openaiLLMRequest} from "../../openai/openaiLLM.js";
+import {OpenAIMockResponse} from "../../openai/mock.js";
+import {createAnalyticsOptions} from "../../../analytics/index.js";
+import stylePrompts from "../../prompts/stylePrompts.js";
 
 /**
  * Retrieves the origin images and related metadata for each scene in the provided array.
@@ -39,6 +43,44 @@ async function getOriginImagesForScenes({scenes, defaultSceneId}) {
   return scenes;
 }
 
+/**
+ * Convert theme to prompt for a generic provider
+ * @param {string|Object} prompt - The user's theme/prompt input
+ * @param {string} uid - User ID
+ * @param {string} graphId - Graph ID
+ * @param {string} sku - Book SKU
+ * @return {Promise<Object>} Sanitized prompt object with title and prompt fields
+ */
+async function convertThemeToPrompt({uid, graphId, sku, prompt}) {
+  // IN TESTS - we can pass in a prompt object for testing.
+  if (typeof prompt === "object" && prompt !== null) {
+    // If prompt is already an object, use it as is
+    return prompt;
+  }
+
+  const sanitizedPrompt = await openaiLLMRequest({
+    promptOverride: stylePrompts.genericStyle,
+    message: prompt,
+    replacements: [],
+    mockResponse: new OpenAIMockResponse({
+      content: {
+        title: "mockTitle",
+        prompt: `Transform this image into a scene that belongs in the world of ${prompt}, with cinematic lighting, costumes, and atmosphere fully adapted to that universe`,
+      },
+    }),
+    analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "genericStyle"}),
+  });
+
+  if (sanitizedPrompt.result) {
+    logger.debug(`Sanitized prompt ${sanitizedPrompt.result.title}:${sanitizedPrompt.result.prompt} from ${prompt}`);
+    return sanitizedPrompt.result;
+  } else {
+    logger.error(`No sanitized prompt found for ${sanitizedPrompt}`);
+    throw new Error("No sanitized prompt found");
+  }
+}
+
 export {
   getOriginImagesForScenes,
+  convertThemeToPrompt,
 };

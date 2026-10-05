@@ -17,7 +17,7 @@ import {
   summarizeLocationImagePrompts,
   updateSceneCache,
   getFirstChapterOver5Minutes,
-} from "./graphV0_1logic.js";
+} from "./graphV0_2logic.js";
 
 import {
   composeSceneImages,
@@ -47,10 +47,10 @@ import {graphMarkChapterComplete} from "../../storage/firestore/graph.js";
 
 /**
  * Version 0.1 implementation of the graph pipeline
- * This is the v0.1 pipeline implementation
+ * This is the v0.2 pipeline implementation
  */
 // eslint-disable-next-line camelcase
-export default class GraphPipelineV0_1 extends GraphPipelineBase {
+export default class GraphPipelineV0_2 extends GraphPipelineBase {
   constructor() {
     super();
     this.pipelineSteps = PIPELINE_STEPS;
@@ -58,7 +58,7 @@ export default class GraphPipelineV0_1 extends GraphPipelineBase {
   }
 
   getVersion() {
-    return "v0.1";
+    return "v0.2";
   }
 
   getPipelineSteps() {

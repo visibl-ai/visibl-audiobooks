@@ -3,13 +3,14 @@ import {createAnalyticsOptions} from "../../../analytics/index.js";
 import {getTranscriptions, getGraph, storeGraph} from "../../../storage/storage.js";
 import {catalogueGetRtdb} from "../../../storage/realtimeDb/catalogue.js";
 import {getChapterDuration} from "../../../util/graphHelper.js";
-import {transcriptionsToText} from "../graphV0_1logic.js";
+import {transcriptionsToText} from "../graphV0_2logic.js";
 import {
   sanitizeFirebaseKey,
 } from "../../../storage/utils.js";
-import {OpenRouterClient, OpenRouterMockResponse} from "../../../ai/openrouter/base.js";
+import {openaiLLMRequest} from "../../../ai/openai/openaiLLM.js";
+import {OpenAIMockResponse} from "../../../ai/openai/mock.js";
 import csv from "../../../ai/csv.js";
-import graphPrompts from "../graphV0_1Prompts.js";
+import graphPrompts from "../graphV0_2Prompts.js";
 
 
 const MIN_CHAPTER_DURATION = 30;
@@ -213,7 +214,6 @@ async function graphScenes(params) {
   });
   logger.debug(`${graphId} ${chapter} Loaded entities: ${charactersData.characters.length} characters and ${locationsData.locations.length} locations - proceeding with scene generation`);
   // 6. Process scenes in chunks - create all promises
-  const openRouterClient = new OpenRouterClient();
   const chunkPromises = [];
   const retryAttempts = {}; // Track retry attempts per chunk
 
@@ -260,9 +260,8 @@ async function graphScenes(params) {
       // Sometimes the model struggles to generate enough scenes for a chunk; to avoid ending up with 0
       // we just stop enforcing the minimum on the final attempt.
       const isLastAttempt = attemptNumber === 2;
-      return openRouterClient.sendRequest({
-        promptOverride: graphPrompts["v0_1_generate_scenes"]({minScenes, isLastAttempt}),
-        modelOverride: "openai/gpt-4.1",
+      return openaiLLMRequest({
+        promptOverride: graphPrompts["v0_2_generate_scenes"]({minScenes, isLastAttempt}),
         message: chapterChunkCSV,
         replacements: [
           {
@@ -275,7 +274,7 @@ async function graphScenes(params) {
           },
         ],
         mockResponse: mockSceneResponse({currentChunkIndex, attemptNumber, chunkStartTime, chunkEndTime, chunkDuration}),
-        analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_generate_scenes"}),
+        analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_generate_scenes"}),
       }).then((result) => {
         logger.debug(`${graphId} ${chapter} Processed scene chunk ${currentChunkIndex + 1} for chapter ${chapter} (attempt ${attemptNumber})`);
 
@@ -487,7 +486,7 @@ async function graphScenes(params) {
         if (description) {
           charactersObj[charName] = description;
         } else {
-          logger.info(`v0.1 graphScenes: ${graphId} ${chapter} scene ${scene.scene_number} Character ${charName} has no description, skipping content enrichment`);
+          logger.info(`v0.2 graphScenes: ${graphId} ${chapter} scene ${scene.scene_number} Character ${charName} has no description, skipping content enrichment`);
         }
       });
       scene.characters = charactersObj;
@@ -506,7 +505,7 @@ async function graphScenes(params) {
         if (description) {
           locationsObj[locName] = description;
         } else {
-          logger.info(`v0.1 graphScenes: ${graphId} ${chapter} scene ${scene.scene_number} Location ${locName} has no description, skipping content enrichment`);
+          logger.info(`v0.2 graphScenes: ${graphId} ${chapter} scene ${scene.scene_number} Location ${locName} has no description, skipping content enrichment`);
         }
       });
       scene.locations = locationsObj;
@@ -614,10 +613,10 @@ async function graphScenes(params) {
 
 /**
  * Mock scene response for testing
- * @return {OpenRouterMockResponse} - Mock response
+ * @return {OpenAIMockResponse} - Mock response
  */
 function mockSceneResponse({currentChunkIndex, attemptNumber, chunkStartTime, chunkEndTime, chunkDuration}) {
-  return new OpenRouterMockResponse({
+  return new OpenAIMockResponse({
     content: {
       scenes: (() => {
       // Test retry mechanism: Return invalid timestamp for chunk 2 on first attempt

@@ -66,18 +66,12 @@ class OpenRouterClient {
   }
 
   /**
-   * Checks if the provider configuration specifies Together
-   * @param {Object} provider - Provider configuration from prompt
-   * @return {boolean} - True if Together provider is specified
+   * Checks if the prompt explicitly opts into the TogetherAI client
+   * @param {Object} globalPrompt - The prompt configuration object
+   * @return {boolean} - True if the prompt opts into Together
    */
-  _isTogetherProvider(provider) {
-    if (!provider) return false;
-
-    // Check openAIGenerationConfig.provider format (used in prompts)
-    const only = provider.only || [];
-    const order = provider.order || [];
-    const combined = [...only, ...order];
-    return combined.some((p) => p.includes("together"));
+  _shouldUseTogetherClient(globalPrompt) {
+    return globalPrompt?.useTogetherClient === true;
   }
 
   /**
@@ -228,9 +222,8 @@ class OpenRouterClient {
       groups: analyticsOptions?.groups || {},
     };
 
-    // Check if this should route to TogetherAI directly
-    const providerConfig = generationConfig?.provider;
-    if (this._isTogetherProvider(providerConfig)) {
+    // Check if this prompt explicitly opts into the Together client
+    if (this._shouldUseTogetherClient(globalPrompt)) {
       return await this._sendToTogether({
         params,
         wantsJson,
@@ -281,6 +274,12 @@ class OpenRouterClient {
       const tokensUsed = result.usage?.total_tokens || 0;
       const responseText = result.choices[0]?.message?.content || "";
       const latencyMs = Date.now() - startTime; // Calculate actual latency
+
+      // Diagnostic for empty completions (e.g. provider-side content filtering or silent truncation)
+      if (!responseText) {
+        const choice = result.choices?.[0];
+        logger.warn(`OpenRouter empty completion — model=${result.model || model} provider=${result.provider} finish_reason=${choice?.finish_reason} native_finish=${choice?.native_finish_reason} refusal=${JSON.stringify(choice?.message?.refusal)} usage=${JSON.stringify(result.usage)} id=${result.id}`);
+      }
 
       // Simple analytics event - Provider will handle the mapping
       if (analyticsOptions) {

@@ -20,10 +20,23 @@ import {
 import path from "path";
 import fs from "fs/promises";
 
+// ByteDance Seedream v4 on fal.ai. fal validates prompts server-side and
+// rejects policy violations with a typed content_policy_violation error.
+const FAL_SEEDREAM_TEXT_TO_IMAGE_MODEL = "fal-ai/bytedance/seedream/v4/text-to-image";
+const FAL_SEEDREAM_EDIT_MODEL = "fal-ai/bytedance/seedream/v4/edit";
+const FAL_PORTRAIT_SIZE = {width: 1152, height: 2048}; // 9:16
+const FAL_SQUARE_SIZE = {width: 2048, height: 2048}; // 1:1
+
+// USD per generated image, used for analytics (fal has no billing lookup API)
+const FAL_MODEL_COSTS = {
+  [FAL_SEEDREAM_TEXT_TO_IMAGE_MODEL]: 0.03,
+  [FAL_SEEDREAM_EDIT_MODEL]: 0.03,
+};
+
 // Model configurations for different Fal.ai models
 const FAL_MODELS = {
-  "imagen4-ultra": {
-    endpoint: "fal-ai/imagen4/preview/ultra",
+  "nano-banana": {
+    endpoint: "fal-ai/nano-banana",
     params: {
       aspect_ratio: "9:16", // default
       num_images: 1,
@@ -46,10 +59,11 @@ async function generateImage(request) {
   const {
     prompt,
     negativePrompt,
-    model = "imagen4-ultra",
+    model = FAL_SEEDREAM_TEXT_TO_IMAGE_MODEL,
     outputPath,
     outputFormat = "jpg",
     modelParams = {},
+    promptParam = "prompt",
   } = request;
 
   if (MOCK_IMAGES.value() === true) {
@@ -70,8 +84,8 @@ async function generateImage(request) {
       // Use model directly as endpoint
       endpoint = model;
       input = {
-        prompt: prompt,
         ...modelParams, // User has full control over parameters
+        [promptParam]: prompt,
       };
       // Add negative prompt if provided
       if (negativePrompt) {
@@ -118,16 +132,13 @@ async function generateImage(request) {
 
     logger.debug(`Fal returned image URL: ${imageUrl}`);
 
-    // Download the image from the URL
+    // Stream the image straight into the upload so it is never fully buffered in memory
     const imageResponse = await axios.get(imageUrl, {
-      responseType: "arraybuffer",
+      responseType: "stream",
     });
-
-    const buffer = Buffer.from(imageResponse.data);
-    const stream = Readable.from(buffer);
     logger.debug(`Fal image generation complete ${outputPath}`);
 
-    return await uploadStreamAndGetCDNLink({stream: sharpStream({format: outputFormat, sourceStream: stream}), filename: outputPath});
+    return await uploadStreamAndGetCDNLink({stream: sharpStream({format: outputFormat, sourceStream: imageResponse.data}), filename: outputPath});
   } catch (error) {
     // Log error details in a structured way
     logger.error(`Fal API error: ${error.message}`);
@@ -210,5 +221,9 @@ export {
   generateImage,
   queueEntryTypeToFunction,
   FAL_MODELS,
+  FAL_MODEL_COSTS,
+  FAL_SEEDREAM_TEXT_TO_IMAGE_MODEL,
+  FAL_SEEDREAM_EDIT_MODEL,
+  FAL_PORTRAIT_SIZE,
+  FAL_SQUARE_SIZE,
 };
-

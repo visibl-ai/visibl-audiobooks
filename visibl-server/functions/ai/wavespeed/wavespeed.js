@@ -58,7 +58,6 @@ async function generateImage(request) {
         ...modelConfig.params,
         ...modelParams,
         enable_safety_checker: false, // Always override to false
-        enable_base64_output: true, // Always override to true
       };
       logger.debug(`Generating image with Wavespeed - using preset model: ${model}, prompt: ${prompt.substring(0, 100)}`);
     } else {
@@ -69,10 +68,13 @@ async function generateImage(request) {
         prompt: prompt,
         ...modelParams, // User has full control over parameters
         enable_safety_checker: false, // Always override to false
-        enable_base64_output: true, // Always override to true
       };
       logger.debug(`Generating image with Wavespeed - using model path: ${model}, endpoint: ${endpoint}, prompt: ${prompt.substring(0, 100)}`);
     }
+
+    // Webhook callback mode does not support base64 output — strip it defensively
+    // so callers that still pass it through modelParams don't trigger a 400.
+    delete input.enable_base64_output;
 
     // Add webhook URL as query parameter
     endpoint = `${endpoint}?webhook=${encodeURIComponent(webhookUrl)}`;

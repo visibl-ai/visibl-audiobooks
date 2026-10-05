@@ -2,6 +2,7 @@ import logger from "../../util/logger.js";
 import globalPrompts from "../prompts/globalPrompts.js";
 import {queueAddEntries} from "../../storage/firestore/queue.js";
 import {dispatchTask} from "../../util/dispatch.js";
+import {FAL_SQUARE_SIZE} from "../fal/fal.js";
 
 /**
  * Generate a book cover prompt based on title and author
@@ -26,17 +27,17 @@ function generateBookCoverPrompt({title, author}) {
  * @return {string} Unique queue ID
  */
 function bookCoverQueueToUnique({uid, sku}) {
-  return `wavespeed_generate_bookcover_${uid}_${sku}`;
+  return `fal_generate_bookcover_${uid}_${sku}`;
 }
 
 /**
- * Generate book cover art using AI image generation via Wavespeed queue
+ * Generate book cover art using AI image generation via the fal queue
  * @param {Object} params - Parameters object
  * @param {string} params.title - Book title
  * @param {string} params.author - Book author
  * @param {string} params.uid - User ID
  * @param {string} params.sku - Book SKU
- * @param {string} [params.model] - Image generation model (defaults to imagen4-fast)
+ * @param {string} [params.modelOverride] - fal endpoint id (defaults to GENERATE_BOOK_COVER.openAIModel)
  * @return {Promise<Object>} Queue result with success status
  */
 export async function generateBookCover({title, author, uid, sku, modelOverride}) {
@@ -48,7 +49,6 @@ export async function generateBookCover({title, author, uid, sku, modelOverride}
       throw new Error("Title and author are required to generate book cover");
     }
 
-    // Use imagen4-fast model for book covers
     const imageModel = modelOverride || globalPrompts.GENERATE_BOOK_COVER.openAIModel;
     const outputFormat = globalPrompts.GENERATE_BOOK_COVER.imageConfig.outputFormat || "jpeg";
 
@@ -61,7 +61,7 @@ export async function generateBookCover({title, author, uid, sku, modelOverride}
       `UserData/${uid}/Processed/${sku}/${sku}.${outputFormat}`;
 
     // Prepare queue entry arrays
-    const types = ["wavespeed"];
+    const types = ["fal"];
     const entryTypes = ["generate"];
     const entryParams = [{
       prompt,
@@ -69,10 +69,7 @@ export async function generateBookCover({title, author, uid, sku, modelOverride}
       outputPath,
       outputFormat,
       modelParams: {
-        aspect_ratio: "1:1",
-        seed: Math.floor(Math.random() * 2 ** 32),
-        enable_base64_output: true,
-        enable_safety_checker: false,
+        image_size: FAL_SQUARE_SIZE,
       },
       uid,
       sku,
@@ -93,9 +90,9 @@ export async function generateBookCover({title, author, uid, sku, modelOverride}
     if (queueResult.success) {
       logger.info(`Book cover generation queued successfully for ${sku}`);
 
-      // Dispatch the wavespeed queue
+      // Dispatch the fal queue
       await dispatchTask({
-        functionName: "launchWavespeedQueue",
+        functionName: "launchFalQueue",
         data: {},
       });
 

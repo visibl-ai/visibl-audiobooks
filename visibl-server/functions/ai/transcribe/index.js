@@ -12,17 +12,6 @@ export {
 } from "./transcriptionProcessor.js";
 
 export {
-  sendTranscriptionToLlm,
-  transcriptionQueue,
-  validateAndSetupTranscriptionParams,
-  createMessageChunks,
-  processChunksWithLLM,
-  validateAndCombineResults,
-  verifyTranscriptionIntegrity,
-  storeChapterTranscription,
-} from "./transcriptionCorrector.js";
-
-export {
   getTranscriptionsPath,
   saveUncorrectedTranscriptions,
   loadTranscriptions,
@@ -32,5 +21,4 @@ export {
 export {
   generateTranscriptions,
   processPrivateM4B,
-  sendTranscriptionToLlmWithQueue,
 } from "./transcriber.js";

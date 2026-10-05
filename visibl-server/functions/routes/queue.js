@@ -13,7 +13,6 @@ import {
 
 import {
   microDispatchInstance,
-  mediumDispatchInstance,
   largeDispatchInstance,
   dispatchTask,
   dataToBody,
@@ -21,15 +20,14 @@ import {
 
 import {getFirestore} from "firebase-admin/firestore";
 import {stabilityQueue} from "../ai/stability/stability.js";
-import {dalleQueue} from "../ai/openai/dallE.js";
+import {openaiImageQueue} from "../ai/queue/openaiImageQueue.js";
 import {geminiQueue} from "../ai/queue/geminiQueue.js";
 import {openaiQueue} from "../ai/queue/openaiQueue.js";
 import {modalQueue} from "../ai/queue/modalQueue.js";
-import {transcriptionQueue} from "../ai/transcribe/index.js";
 import {imagerouterQueue} from "../ai/queue/imagerouterQueue.js";
 import {falQueue} from "../ai/queue/falQueue.js";
 import {wavespeedQueue} from "../ai/queue/wavespeedQueue.js";
-import {groqQueue} from "../ai/queue/groqQueue.js";
+import {allmodelsQueue} from "../ai/queue/allmodelsQueue.js";
 import {bookImportQueue} from "../ai/queue/bookImportQueue.js";
 import {
   firebaseHttpFnConfig,
@@ -80,6 +78,9 @@ export const v1queueBatchStatus = onRequest(firebaseHttpFnConfig, async (req, re
     case "openai":
       queue = openaiQueue;
       break;
+    case "openaiImage":
+      queue = openaiImageQueue;
+      break;
     case "modal":
       queue = modalQueue;
       break;
@@ -92,11 +93,8 @@ export const v1queueBatchStatus = onRequest(firebaseHttpFnConfig, async (req, re
     case "wavespeed":
       queue = wavespeedQueue;
       break;
-    case "groq":
-      queue = groqQueue;
-      break;
-    case "transcription":
-      queue = transcriptionQueue;
+    case "allmodels":
+      queue = allmodelsQueue;
       break;
     case "bookImport":
       queue = bookImportQueue;
@@ -145,14 +143,11 @@ export const v1adminLaunchQueue = onRequest(firebaseHttpFnConfig, async (req, re
     case "stability":
       await dispatchTask({functionName: "launchStabilityQueue", data: {}});
       break;
-    case "dalle":
-      await dispatchTask({functionName: "launchDalleQueue", data: {}});
+    case "openaiImage":
+      await dispatchTask({functionName: "launchOpenAiImageQueue", data: {}});
       break;
     case "graph":
       await dispatchTask({functionName: "graphPipeline", data: {}});
-      break;
-    case "transcription":
-      await dispatchTask({functionName: "launchTranscriptionQueue", data: {}});
       break;
     case "gemini":
       await dispatchTask({functionName: "launchGeminiQueue", data: {}});
@@ -172,8 +167,8 @@ export const v1adminLaunchQueue = onRequest(firebaseHttpFnConfig, async (req, re
     case "wavespeed":
       await dispatchTask({functionName: "launchWavespeedQueue", data: {}});
       break;
-    case "groq":
-      await dispatchTask({functionName: "launchGroqQueue", data: {}});
+    case "allmodels":
+      await dispatchTask({functionName: "launchAllmodelsQueue", data: {}});
       break;
     case "bookImport":
       await dispatchTask({functionName: "launchBookImportQueue", data: {}});
@@ -196,11 +191,11 @@ export const launchStabilityQueue = onTaskDispatched(
     },
 );
 
-export const launchDalleQueue = onTaskDispatched(
+export const launchOpenAiImageQueue = onTaskDispatched(
     largeDispatchInstance(),
     async (req) => {
-      logger.debug(`launchDalleQueue: ${JSON.stringify(req.data)}`);
-      return await dalleQueue(dataToBody(req));
+      logger.debug(`launchOpenAiImageQueue: ${JSON.stringify(req.data)}`);
+      return await openaiImageQueue.processQueue(dataToBody(req));
     },
 );
 
@@ -228,18 +223,6 @@ export const launchModalQueue = onTaskDispatched(
     },
 );
 
-export const launchTranscriptionQueue = onTaskDispatched(
-    mediumDispatchInstance({maxConcurrentDispatches: 20, concurrency: 1}),
-    async (req) => {
-      logger.debug(`launchTranscriptionQueue: ${JSON.stringify(req.data)}`);
-      // Wait only if explicitly requested
-      if (req.data.await) {
-        return await transcriptionQueue.processQueueAndWait();
-      }
-      return await transcriptionQueue.processQueue();
-    },
-);
-
 export const launchImageRouterQueue = onTaskDispatched(
     largeDispatchInstance(),
     async (req) => {
@@ -264,11 +247,11 @@ export const launchWavespeedQueue = onTaskDispatched(
     },
 );
 
-export const launchGroqQueue = onTaskDispatched(
+export const launchAllmodelsQueue = onTaskDispatched(
     largeDispatchInstance(),
     async (req) => {
-      logger.debug(`launchGroqQueue: ${JSON.stringify(req.data)}`);
-      return await groqQueue.processQueue();
+      logger.debug(`launchAllmodelsQueue: ${JSON.stringify(req.data)}`);
+      return await allmodelsQueue.processQueue();
     },
 );
 
@@ -279,4 +262,3 @@ export const launchBookImportQueue = onTaskDispatched(
       return await bookImportQueue.processQueue();
     },
 );
-

@@ -5,10 +5,11 @@
 
 import {v4 as uuidv4} from "uuid";
 import logger from "../../../util/logger.js";
-import {
-  styleImage as styleImageSeededit3,
-  convertThemeToPrompt as convertThemeToPromptSeededit3,
-} from "./seededit3.js";
+import {convertThemeToPrompt} from "./styleHelpers.js";
+import {styleImage as styleImageFal} from "./fal.js";
+import {styleImage as styleImageOpenAi} from "./openaiImage.js";
+import {styleImage as styleImageSeededit3} from "./seededit3.js";
+import {styleImage as styleImageSeedream4} from "./seedream4.js";
 import {
   catalogueAddStyleRtdb,
 } from "../../../storage/realtimeDb/catalogue.js";
@@ -19,6 +20,8 @@ import {
   catalogueGetRtdb,
 } from "../../../storage/realtimeDb/catalogue.js";
 import {recordUserRateLimit} from "../../../storage/realtimeDb/userRateLimiter.js";
+
+const DEFAULT_STYLE_PROVIDER = "openaiImage";
 /**
  * Add scenes to the queue for styling with the specified provider
  * @param {Object} params - The parameters object
@@ -27,7 +30,7 @@ import {recordUserRateLimit} from "../../../storage/realtimeDb/userRateLimiter.j
  * @param {string} params.styleTitle - The style title to save styled images to
  * @param {string} params.theme - The style/theme prompt to apply
  * @param {string} params.defaultSceneId - The default scene ID for getting origin images
- * @param {string} [params.provider="stability"] - The provider to use (stability, seededit3)
+ * @param {string} [params.provider="openaiImage"] - The provider to use
  * @param {Object} [params.modelConfig={}] - Provider-specific model configuration
  * @return {Promise<void>}
  */
@@ -38,7 +41,7 @@ async function styleScenesWithQueue(params) {
     styleTitle,
     theme,
     defaultSceneId,
-    provider = "seededit3",
+    provider = DEFAULT_STYLE_PROVIDER,
     modelConfig = {},
     sku,
     uid,
@@ -51,15 +54,49 @@ async function styleScenesWithQueue(params) {
 
   logger.debug(`styleScenesWithQueue: Using provider ${provider} for scene ${styleId} | Theme: ${theme} | Processing ${scenes.length} scenes`);
   // Validate provider
-  const supportedProviders = ["seededit3"];
+  const supportedProviders = ["fal", "openaiImage", "seededit3", "seedream4"];
   if (!supportedProviders.includes(provider)) {
-    logger.warn(`Unknown provider ${provider}, falling back to seededit3`);
+    logger.warn(`Unknown provider ${provider}, falling back to ${DEFAULT_STYLE_PROVIDER}`);
   }
 
   // Delegate to provider-specific implementation
   switch (provider) {
-    default:
+    case "fal":
+      return await styleImageFal({
+        scenes,
+        styleId,
+        styleTitle,
+        theme,
+        defaultSceneId,
+        modelConfig,
+        sku,
+        uid,
+      });
+    case "seededit3":
       return await styleImageSeededit3({
+        scenes,
+        styleId,
+        styleTitle,
+        theme,
+        defaultSceneId,
+        modelConfig,
+        sku,
+        uid,
+      });
+    case "seedream4":
+      return await styleImageSeedream4({
+        scenes,
+        styleId,
+        styleTitle,
+        theme,
+        defaultSceneId,
+        modelConfig,
+        sku,
+        uid,
+      });
+    case "openaiImage":
+    default:
+      return await styleImageOpenAi({
         scenes,
         styleId,
         styleTitle,
@@ -78,12 +115,12 @@ async function styleScenesWithQueue(params) {
  * @param {string} params.uid - User ID creating the style
  * @param {string} params.sku - SKU of the catalogue item
  * @param {string} params.prompt - The style prompt/theme from user
- * @param {string} params.provider - The provider to use for styling (e.g., "seededit3")
+ * @param {string} params.provider - The provider to use for styling
  * @param {number} [params.currentTime] - Optional current playback time for partial generation
  * @param {number} [params.chapter=0] - Chapter number for generation
  * @return {Promise<Object>} The created style object
  */
-async function createStyle({uid, sku, prompt, provider = "seededit3", currentTime, chapter = 0}) {
+async function createStyle({uid, sku, prompt, provider = DEFAULT_STYLE_PROVIDER, currentTime, chapter = 0}) {
   // Check if prompt is undefined
   if (prompt === undefined) {
     throw new Error("Prompt cannot be undefined");
@@ -104,14 +141,14 @@ async function createStyle({uid, sku, prompt, provider = "seededit3", currentTim
     throw new Error(`Default graph not found for sku ${sku}`);
   }
 
-  // Process prompt through provider-specific conversion
+  // If your model needs a specific type of prompt, do it here.
   let sanitizedPrompt;
   switch (provider) {
     case "seededit3":
-      sanitizedPrompt = await convertThemeToPromptSeededit3({uid, graphId, sku, prompt});
-      break;
+    case "openaiImage":
+    case "seedream4":
     default:
-      throw new Error(`Unsupported provider: ${provider}`);
+      sanitizedPrompt = await convertThemeToPrompt({uid, graphId, sku, prompt});
   }
 
   logger.debug(`Using provider ${provider} for style creation`);
@@ -151,4 +188,4 @@ async function createStyle({uid, sku, prompt, provider = "seededit3", currentTim
   return {id: styleId, ...newStyle};
 }
 
-export {styleScenesWithQueue, createStyle};
+export {styleScenesWithQueue, createStyle, DEFAULT_STYLE_PROVIDER};

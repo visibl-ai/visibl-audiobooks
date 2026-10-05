@@ -64,7 +64,7 @@ class PostHogProvider extends AnalyticsProvider {
     // Set library info based on provider
     const libInfo = {
       wavespeed: {lib: "wavespeed-sdk", version: "1.0.0"},
-      groq: {lib: "groq-sdk", version: "1.0.0"},
+      allmodels: {lib: "openai", version: "5.8.2"},
       openrouter: {lib: "openai", version: "5.8.2"},
       openai: {lib: "openai", version: "5.8.2"},
     }[provider] || {lib: provider, version: "1.0.0"};
@@ -117,7 +117,7 @@ class PostHogProvider extends AnalyticsProvider {
       }
     }
 
-    // Manual cost tracking (Wavespeed, Groq, and Fine-tuned OpenAI)
+    // Manual cost tracking (Wavespeed, AllModels, and Fine-tuned OpenAI)
     const isFineTunedModel = properties.model?.startsWith("ft:");
     if (properties.cost !== undefined || isFineTunedModel) {
       mapped.$ai_cost = properties.cost;
@@ -128,7 +128,7 @@ class PostHogProvider extends AnalyticsProvider {
         mapped.$ai_input_cost_usd = 0;
         mapped.$ai_output_cost_usd = properties.cost;
         mapped.$ai_cost_model_provider = "default";
-      } else if (provider === "groq") {
+      } else if (provider === "allmodels") {
         mapped.$ai_input_cost_usd = 0;
         mapped.$ai_output_cost_usd = properties.cost;
         mapped.$ai_cost_model_provider = "default";
@@ -164,7 +164,7 @@ class PostHogProvider extends AnalyticsProvider {
       // Image generation proxy
       mapped.$ai_input_tokens = 0;
       mapped.$ai_output_tokens = 1;
-    } else if (provider === "groq") {
+    } else if (provider === "allmodels") {
       mapped.$ai_input_tokens = 0;
       mapped.$ai_output_tokens = properties.tokens || 0;
     } else if (provider === "openai" && properties.result?.usage) {

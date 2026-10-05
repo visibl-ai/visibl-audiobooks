@@ -25,7 +25,8 @@ function getTranscriptionsPath({uid, sku, chapter, identifier = null}) {
 }
 
 /**
- * Save uncorrected transcriptions as fallback
+ * Save the raw transcriptions. The main file (no identifier) is the transcript the graph
+ * pipeline reads; the "raw" identifier keeps an untouched copy.
  * @param {string} uid - User ID
  * @param {string} sku - Book SKU
  * @param {string} identifier - Identifier for the transcriptions (optional)

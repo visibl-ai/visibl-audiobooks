@@ -10,6 +10,10 @@ import {catalogueGetAllRtdb} from "../storage/realtimeDb/catalogue.js";
 import {getData, deleteData} from "../storage/realtimeDb/database.js";
 
 import logger from "./logger.js";
+import {releaseStuckChapters} from "../graph/chapterFailure.js";
+import {GRAPH_STUCK_PROCESSING_MINUTES} from "../graph/config.js";
+import {aaxGetUsersBySkuFirestore} from "../storage/firestore/aax.js";
+import {sendNotifications} from "./notifications.js";
 
 // Initialize dayjs with relativeTime plugin
 dayjs.extend(relativeTime);
@@ -407,13 +411,49 @@ function findNextChapterOverDuration(catalogueItem, currentChapterKey, minDurati
 }
 
 /**
- * Simplified checkup for potentially stuck books
- * @param {number} minutesThreshold - Time threshold in minutes (default: 10)
+ * Release graph chapters that are marked processing but have no live queue work behind them.
+ * @param {number} thresholdMs - Minimum idle time before a graph counts as stuck
  * @return {Promise<void>}
  */
-async function graphCheckup(minutesThreshold = 10) {
+async function releaseStuckGraphChapters(thresholdMs) {
   try {
-    const thresholdMs = minutesThreshold * 60 * 1000;
+    const {checked, released} = await releaseStuckChapters({
+      thresholdMs,
+      processingThresholdMs: GRAPH_STUCK_PROCESSING_MINUTES * 60 * 1000,
+    });
+    if (released.length > 0) {
+      logger.warn(`graphCheckup: released ${released.length} stuck chapter(s) across ${checked} processing graph(s): ${JSON.stringify(released)}`);
+    } else {
+      logger.info(`graphCheckup: no stuck chapters found across ${checked} processing graph(s)`);
+    }
+  } catch (error) {
+    logger.error(`graphCheckup: failed to release stuck chapters: ${error.message}`);
+  }
+}
+
+/**
+ * Simplified checkup for potentially stuck books: flags catalogue items with no graph, then
+ * releases graph chapters left in processingChapters with no live queue work.
+ * @param {number} minutesThreshold - Time threshold in minutes (default: 10)
+ * @param {Object} [options] - Options
+ * @param {Function} [options.notifyFn] - Sends push notifications (injectable for tests)
+ * @return {Promise<void>}
+ */
+async function graphCheckup(minutesThreshold = 10, {notifyFn = sendNotifications} = {}) {
+  const thresholdMs = minutesThreshold * 60 * 1000;
+  await checkCataloguesForMissingGraphs(thresholdMs, {notifyFn});
+  await releaseStuckGraphChapters(thresholdMs);
+}
+
+/**
+ * Warn (once) about catalogue items added to a library more than thresholdMs ago with no graph.
+ * @param {number} thresholdMs - Time threshold in ms
+ * @param {Object} options - Options
+ * @param {Function} options.notifyFn - Sends push notifications
+ * @return {Promise<void>}
+ */
+async function checkCataloguesForMissingGraphs(thresholdMs, {notifyFn}) {
+  try {
     const currentTime = Date.now();
 
     // Fetch all catalogue items
@@ -457,21 +497,28 @@ async function graphCheckup(minutesThreshold = 10) {
           const timeAgo = dayjs(addedToFirstUserAt).fromNow();
 
           // Check if there's graph progress to report
-          if (catalogueItem.graphProgress) {
-            const progress = catalogueItem.graphProgress.progress ||
-                           catalogueItem.graphProgress.completion || 0;
-            const stage = catalogueItem.graphProgress.stage ||
-                        catalogueItem.graphProgress.currentStep ||
-                        catalogueItem.graphProgress.status || "Unknown";
-            logger.warn(
-                `Book processing may be stuck: SKU ${sku} (${catalogueItem.title || "Unknown"})` +
-              ` - added to user's library ${timeAgo}, progress: ${progress}%, stage: ${stage}`,
-            );
-          } else {
-            logger.warn(
-                `Book processing may be stuck: SKU ${sku} (${catalogueItem.title || "Unknown"})` +
-              ` - added to user's library ${timeAgo}, no graph available, no progress tracking`,
-            );
+          // A book waiting on the user's upload is theirs to fix, so once they're reminded there's
+          // nothing for the server to warn about.
+          const reminded = isWaitingForAAXUpload(catalogueItem) &&
+            await remindToFinishAAXUpload({catalogueItem, notifyFn});
+
+          if (!reminded) {
+            if (catalogueItem.graphProgress) {
+              const progress = catalogueItem.graphProgress.progress ||
+                             catalogueItem.graphProgress.completion || 0;
+              const stage = catalogueItem.graphProgress.stage ||
+                          catalogueItem.graphProgress.currentStep ||
+                          catalogueItem.graphProgress.status || "Unknown";
+              logger.warn(
+                  `Book processing may be stuck: SKU ${sku} (${catalogueItem.title || "Unknown"})` +
+                ` - added to user's library ${timeAgo}, progress: ${progress}%, stage: ${stage}`,
+              );
+            } else {
+              logger.warn(
+                  `Book processing may be stuck: SKU ${sku} (${catalogueItem.title || "Unknown"})` +
+                ` - added to user's library ${timeAgo}, no graph available, no progress tracking`,
+              );
+            }
           }
 
           // Mark this item as notified to prevent duplicate alerts
@@ -485,6 +532,48 @@ async function graphCheckup(minutesThreshold = 10) {
     }
   } catch (error) {
     logger.error(`Error in graphCheckup: ${error.message}`);
+  }
+}
+
+/**
+ * Whether an AAX import is waiting on the user's phone: the audio was never uploaded, so transcription
+ * hasn't started. The metadata may not have arrived either if the app was closed early.
+ * @param {Object} catalogueItem - The catalogue item
+ * @return {boolean} Whether the import is waiting for the upload
+ */
+function isWaitingForAAXUpload(catalogueItem) {
+  return catalogueItem.visibility === "private" &&
+    !catalogueItem.isCustomUpload &&
+    catalogueItem.graphProgress?.currentStep === "initializing" &&
+    !catalogueItem.graphProgress?.transcriptionInProgress;
+}
+
+/**
+ * Ask the users importing an AAX book to reopen the app, which resumes the upload.
+ * @param {Object} params - The parameters object
+ * @param {Object} params.catalogueItem - The catalogue item waiting for its upload
+ * @param {Function} params.notifyFn - Sends push notifications
+ * @return {Promise<boolean>} Whether a reminder was sent
+ */
+async function remindToFinishAAXUpload({catalogueItem, notifyFn}) {
+  const sku = catalogueItem.id;
+  try {
+    // UserAAXSync lists everyone who owns the title on Audible; only those who added it to their
+    // Visibl library are waiting on this import.
+    const owners = await aaxGetUsersBySkuFirestore({sku});
+    const inLibrary = await Promise.all(owners.map((uid) => getData({ref: `users/${uid}/library/${sku}`})));
+    const uids = owners.filter((uid, i) => inLibrary[i]);
+    if (uids.length === 0) return false;
+    await notifyFn({
+      uids,
+      title: `⚠️ ${catalogueItem.title || "Your book"} paused`,
+      body: "Open Visibl to finish uploading your book.",
+    });
+    logger.info(`Sent upload reminder for SKU ${sku} to ${uids.length} user(s)`);
+    return true;
+  } catch (error) {
+    logger.error(`Failed to send upload reminder for SKU ${sku}: ${error.message}`);
+    return false;
   }
 }
 

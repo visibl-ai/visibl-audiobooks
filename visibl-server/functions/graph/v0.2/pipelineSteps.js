@@ -1,5 +1,5 @@
 /**
- * Pipeline steps configuration for GraphPipelineV0_1
+ * Pipeline steps configuration for GraphPipelineV0_2
  * This is a separate file to avoid circular dependencies
  */
 

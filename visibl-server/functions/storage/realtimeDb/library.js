@@ -13,6 +13,7 @@ import {
 } from "../../util/notifications.js";
 import {
   CDN_URL,
+  AAX_CONNECT_SOURCE,
 } from "../../config/config.js";
 import {
   getPublicUrl,
@@ -94,13 +95,13 @@ async function libraryAddItemRtdb({uid, data}) {
         logger.debug(`libraryAddItemRtdb: uid: ${uid} completed - custom upload ${sku} queued.`);
       }
     } else {
-      // get UID:SKU from UserAAXSync for Audible imports
+      // get UID:SKU from UserAAXSync for AAX imports
       const aaxItem = await aaxGetItemFirestore(`${uid}:${sku}`);
       if (aaxItem) {
         // Check if catalogue item has a default graph or no transcription/graph in progress. If not, transcribe.
         logger.debug(`libraryAddItemRtdb: uid: ${uid}, aaxItem in DB: ${aaxItem.sku}`);
         if (!catalogueItem.defaultGraphId && !catalogueItem.graphProgress?.inProgress && !catalogueItem.graphProgress?.transcriptionInProgress) {
-          await sendNotifications({uids: [uid], title: "Audible Import Started", body: `Importing ${aaxItem.title} - we'll notify you when it's ready.`});
+          await sendNotifications({uids: [uid], title: `${AAX_CONNECT_SOURCE.value()} Import Started`, body: `Importing ${aaxItem.title} - we'll notify you when it's ready.`});
           logger.debug(`libraryAddItemRtdb: uid: ${uid} completed - dispatched ${aaxItem.sku}.`);
         }
       } else {
@@ -228,6 +229,25 @@ async function libraryUpdateTranscriptionStatusRtdb({uid, sku, chapter, status})
   return await getData({ref});
 }
 
+/**
+ * Set a chapter's transcription status to "error", but only when it is currently "processing"
+ * (so a spinner left by a failed graph step is cleared without overwriting ready/waiting states).
+ * @param {Object} params
+ * @param {string} params.uid - User ID
+ * @param {string} params.sku - Book SKU
+ * @param {number|string} params.chapter - Chapter index
+ * @return {Promise<boolean>} True when the status was reset
+ */
+async function libraryResetTranscriptionStatusIfProcessingRtdb({uid, sku, chapter}) {
+  const statusRef = `${libraryItemToDbRef({uid, sku})}/content/chapters/${chapter}/transcriptions/status`;
+  const currentStatus = await getData({ref: statusRef});
+  if (currentStatus !== "processing") {
+    return false;
+  }
+  await libraryUpdateTranscriptionStatusRtdb({uid, sku, chapter, status: "error"});
+  return true;
+}
+
 async function librarySetItemProgressRtdb({uid, data}) {
   const sku = data.sku;
   const progress = data.progress;
@@ -318,6 +338,7 @@ export {
   libraryDeleteAllPrivateItemsRtdb,
   librarySetItemProgressRtdb,
   libraryUpdateTranscriptionStatusRtdb,
+  libraryResetTranscriptionStatusIfProcessingRtdb,
   getCurrentSceneFromLibraryRtdb,
   getCarouselListFromLibraryRtdb,
   deduplicateCarouselList,
