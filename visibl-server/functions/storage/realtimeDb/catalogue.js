@@ -209,7 +209,7 @@ async function getStylesFromCatalogueRtdb({sku, type = "array"}) {
 }
 
 async function populateCatalogueWithAAXItems({uid, items}) {
-  logger.debug("Populating catalogue with audible items");
+  logger.debug("Populating catalogue with AAX items");
   logger.debug("Items SKUs:", items.map((item) => item.sku).join(", "));
   items = await filterNewSKUItemsForCatalogue({items});
   logger.debug("Filtered items:", items.map((item) => item.sku).join(", "));

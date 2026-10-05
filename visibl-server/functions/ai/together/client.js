@@ -8,7 +8,7 @@ import {zodResponseFormat} from "openai/helpers/zod.mjs";
  * Model name mapping from OpenRouter format to TogetherAI format
  */
 const MODEL_MAPPING = {
-  "deepseek/deepseek-chat-v3-0324": "deepseek-ai/DeepSeek-V3",
+  "deepseek/deepseek-chat-v3-0324": "deepseek-ai/DeepSeek-V4-Pro",
 };
 
 /**

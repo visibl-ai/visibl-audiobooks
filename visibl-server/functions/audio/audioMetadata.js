@@ -47,7 +47,8 @@ async function getMetaData(uid, sku, path) {
       bookData = await getJsonFile({filename: getMetadataPath(uid, sku)});
       logger.info(`Found metadata in GCS file for ${sku}`);
     } catch (error) {
-      logger.error(`Metadata unavailable for ${sku}: ${error}`);
+      // Expected for AAX items added before their metadata is uploaded; callers continue with empty metadata
+      logger.debug(`Metadata unavailable for ${sku}: ${error}`);
       return {bookData, outputFiles: [], startTimes: [], endTimes: []};
     }
   }

@@ -8,48 +8,6 @@ import {queueAddEntries} from "../../../storage/firestore/queue.js";
 import {wavespeedQueueToUnique} from "../../queue/wavespeedQueue.js";
 import {dispatchTask} from "../../../util/dispatch.js";
 import {getOriginImagesForScenes} from "./styleHelpers.js";
-import {OpenRouterClient} from "../../openrouter/base.js";
-import {OpenRouterMockResponse} from "../../openrouter/mock.js";
-import stylePrompts from "../../prompts/stylePrompts.js";
-import {createAnalyticsOptions} from "../../../analytics/index.js";
-
-/**
- * Convert theme to prompt for Wavespeed provider
- * @param {string|Object} prompt - The user's theme/prompt input
- * @param {string} uid - User ID
- * @param {string} graphId - Graph ID
- * @param {string} sku - Book SKU
- * @return {Promise<Object>} Sanitized prompt object with title and prompt fields
- */
-export async function convertThemeToPrompt({uid, graphId, sku, prompt}) {
-  // IN TESTS - we can pass in a prompt object for testing.
-  if (typeof prompt === "object" && prompt !== null) {
-    // If prompt is already an object, use it as is
-    return prompt;
-  }
-
-  const openRouterClient = new OpenRouterClient();
-  const sanitizedPrompt = await openRouterClient.sendRequest({
-    promptOverride: stylePrompts.seededit3Style,
-    message: prompt,
-    replacements: [],
-    mockResponse: new OpenRouterMockResponse({
-      content: {
-        title: "mockTitle",
-        prompt: `Transform this image into a scene that belongs in the world of ${prompt}, with cinematic lighting, costumes, and atmosphere fully adapted to that universe`,
-      },
-    }),
-    analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "seededit3_style"}),
-  });
-
-  if (sanitizedPrompt.result) {
-    logger.debug(`Sanitized prompt ${sanitizedPrompt.result.title}:${sanitizedPrompt.result.prompt} from ${prompt}`);
-    return sanitizedPrompt.result;
-  } else {
-    logger.error(`No sanitized prompt found for ${sanitizedPrompt}`);
-    throw new Error("No sanitized prompt found");
-  }
-}
 
 /**
  * Style scenes using Wavespeed's ByteDance SeededEdit-v3 model

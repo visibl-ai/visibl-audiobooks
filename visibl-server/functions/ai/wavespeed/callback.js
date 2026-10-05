@@ -11,10 +11,7 @@ import {sharpStream} from "../../util/sharp.js";
 import {captureEvent, flushAnalytics} from "../../analytics/index.js";
 import {searchBilling} from "./wavespeed.js";
 import {wavespeedQueue} from "../queue/wavespeedQueue.js";
-import handleSceneImagePostProcessing from "../../storage/realtimeDb/hooks/handleSceneImagePostProcessing.js";
-import handleCharacterImagePostProcessing from "../../storage/realtimeDb/hooks/handleCharacterImagePostProcessing.js";
-import handleLocationImagePostProcessing from "../../storage/realtimeDb/hooks/handleLocationImagePostProcessing.js";
-import handleCoverArtPostProcessing from "../../storage/realtimeDb/hooks/handleCoverArtPostProcessing.js";
+import {runImagePostProcessing} from "../images/postProcessImage.js";
 import {WAVESPEED_WEBHOOK_SECRET, MOCK_IMAGES} from "../../config/config.js";
 
 /**
@@ -191,16 +188,7 @@ async function processWavespeedCallback({entryId, payload}) {
       const storedResult = resultGcsPath ? {resultGcsPath} : result;
 
       // Handle post-processing hooks
-      const resultObj = {result: storedResult};
-      if (entry.params?.type === "sceneImage") {
-        await handleSceneImagePostProcessing(entry, resultObj);
-      } else if (entry.params?.type === "character" || entry.params?.type === "character-profile") {
-        await handleCharacterImagePostProcessing(entry, resultObj);
-      } else if (entry.params?.type === "location") {
-        await handleLocationImagePostProcessing(entry, resultObj);
-      } else if (entry.params?.type === "coverArt") {
-        await handleCoverArtPostProcessing(entry, resultObj);
-      }
+      await runImagePostProcessing({entry, result: storedResult});
 
       // Mark entry as complete
       await queueUpdateEntries({

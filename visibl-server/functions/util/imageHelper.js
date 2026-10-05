@@ -1,6 +1,7 @@
 /* eslint-disable require-jsdoc */
 import logger from "./logger.js";
-import {OpenRouterClient, OpenRouterMockResponse} from "../ai/openrouter/base.js";
+import {openaiLLMRequest} from "../ai/openai/openaiLLM.js";
+import {OpenAIMockResponse} from "../ai/openai/mock.js";
 import {createAnalyticsOptions} from "../analytics/index.js";
 /**
  * Moderates an image prompt that was flagged for content policy violation
@@ -14,19 +15,17 @@ async function moderateImagePrompt(params) {
 
   logger.debug(`Moderating image prompt: ${prompt.substring(0, 100)}...`);
 
-  const openRouterClient = new OpenRouterClient();
-
   const contextReplacement = context ? `Context: ${context}` : "";
 
   try {
-    const result = await openRouterClient.sendRequest({
+    const result = await openaiLLMRequest({
       prompt: "moderateImagePrompt",
       message: prompt,
       replacements: [
         {key: "CONTEXT", value: contextReplacement},
       ],
       analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "moderateImagePrompt"}),
-      mockResponse: new OpenRouterMockResponse({
+      mockResponse: new OpenAIMockResponse({
         content: `Mock moderated version of: ${prompt.substring(0, 50)}... [content moderated for safety]`,
       }),
     });

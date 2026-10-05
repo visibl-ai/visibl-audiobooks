@@ -144,22 +144,14 @@ const rateLimiters = {
         windowSize: parseInt(process.env.OPENROUTER_WINDOW_SIZE || "5000", 10), // 5-second window
       },
     }),
-    transcription: createRateLimiter({
-      serviceName: "openrouter-transcription",
-      options: {
-        maxRequests: parseInt(process.env.OPENROUTER_TRANSCRIPTION_MAX_REQUESTS || "50", 10), // 50 concurrent requests
-        maxTokens: parseInt(process.env.OPENROUTER_TRANSCRIPTION_MAX_TOKENS || "100000", 10), // 100k tokens per 5 seconds
-        windowSize: parseInt(process.env.OPENROUTER_TRANSCRIPTION_WINDOW_SIZE || "5000", 10), // 5-second window
-      },
-    }),
   },
-  groq: {
-    "whisper-large-v3-turbo": createRateLimiter({
-      serviceName: "groq-whisper",
+  allmodels: {
+    "groq/whisper-large-v3-turbo": createRateLimiter({
+      serviceName: "allmodels-whisper",
       options: {
-        maxRequests: parseInt(process.env.GROQ_WHISPER_MAX_REQUESTS || "275", 10), // 275 requests per minute
-        maxTokens: parseInt(process.env.GROQ_WHISPER_MAX_TOKENS || "1000000", 10), // 1M tokens per minute
-        windowSize: parseInt(process.env.GROQ_WHISPER_WINDOW_SIZE || "60000", 10), // 60-second window
+        maxRequests: parseInt(process.env.ALLMODELS_WHISPER_MAX_REQUESTS || "275", 10), // 275 requests per minute
+        maxTokens: parseInt(process.env.ALLMODELS_WHISPER_MAX_TOKENS || "1000000", 10), // 1M tokens per minute
+        windowSize: parseInt(process.env.ALLMODELS_WHISPER_WINDOW_SIZE || "60000", 10), // 60-second window
       },
     }),
   },

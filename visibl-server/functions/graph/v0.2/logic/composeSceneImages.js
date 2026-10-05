@@ -13,7 +13,7 @@ import {openaiImageQueueToUnique} from "../../../ai/queue/openaiImageQueue.js";
 import {FAL_SEEDREAM_TEXT_TO_IMAGE_MODEL, FAL_PORTRAIT_SIZE} from "../../../ai/fal/fal.js";
 import {
   OPENAI_SCENE_IMAGE_MODEL,
-  OPENAI_SCENE_IMAGE_PARAMS,
+  OPENAI_STREAMED_SCENE_IMAGE_PARAMS,
 } from "../../../ai/openai/openaiImage.js";
 import {sanitizeFirebaseKey} from "../../../storage/utils.js";
 
@@ -32,7 +32,7 @@ const PROVIDERS = {
     queueToUnique: openaiImageQueueToUnique,
     dispatchFunctionName: "launchOpenAiImageQueue",
     defaultModel: OPENAI_SCENE_IMAGE_MODEL,
-    defaultModelParams: OPENAI_SCENE_IMAGE_PARAMS,
+    defaultModelParams: OPENAI_STREAMED_SCENE_IMAGE_PARAMS,
   },
 };
 

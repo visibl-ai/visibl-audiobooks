@@ -38,57 +38,6 @@ function stabilityQueueToUnique(params) {
 // For now, we use the same unique identifier for modal and stability
 const modalQueueToUnique = stabilityQueueToUnique;
 
-function dalleQueueToUnique(params) {
-  const {type, entryType, sceneId, chapter, scene_number, retry = false, graphId, nodeType, nodeName} = params;
-
-  // Handle scene-based entries
-  if (sceneId !== undefined && chapter !== undefined && scene_number !== undefined) {
-    // Check if any of the required parameters are undefined
-    if (type === undefined || entryType === undefined) {
-      throw new Error("All parameters (type, entryType) must be defined for scene entries");
-    }
-
-    // If all parameters are defined, return a unique identifier for scene
-    const retryString = retry ? "_retry" : "";
-    return `${type}_${entryType}_${sceneId}_${chapter}_${scene_number}${retryString}`;
-  }
-
-  // Handle graph node entries
-  if (graphId !== undefined && nodeType !== undefined && nodeName !== undefined) {
-    // Check if any of the required parameters are undefined
-    if (type === undefined || entryType === undefined) {
-      throw new Error("All parameters (type, entryType) must be defined for graph node entries");
-    }
-
-    // If all parameters are defined, return a unique identifier for graph node
-    const retryString = retry ? "_retry" : "";
-    return `${type}_${entryType}_${graphId}_${nodeType}_${nodeName.toLowerCase().replace(/\s+/g, "_")}${retryString}`;
-  }
-
-  throw new Error("Invalid parameters for unique identifier generation");
-}
-
-function transcriptionQueueToUnique(params) {
-  const {entryType, taskParams, retry = false} = params;
-  const {uid, sku, chapter, unique} = taskParams;
-  if (entryType === undefined || uid === undefined || sku === undefined || chapter === undefined) {
-    throw new Error("All parameters (entryType, uid, sku, chapter) must be defined");
-  }
-
-  // Generate datetime string in YYYYMMDDHHMM format if no unique is provided
-  const uniqueId = unique || (() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hour = String(now.getHours()).padStart(2, "0");
-    const minute = String(now.getMinutes()).padStart(2, "0");
-    return `${year}${month}${day}${hour}${minute}`;
-  })();
-
-  return `${entryType}_${uid}_${sku}_${chapter}_${uniqueId}${retry ? "_retry" : ""}`;
-}
-
 /**
  * Generate a unique identifier for an ai queue entry
  * @param {Object} options - The parameters object
@@ -129,7 +78,8 @@ function graphQueueToUnique(params) {
   }
 
   // If all parameters are defined, return a unique identifier
-  const chapterString = chapter ? `_${chapter}` : "";
+  const hasChapter = chapter !== undefined && chapter !== null;
+  const chapterString = hasChapter ? `_${chapter}` : "";
   return `${type}_${entryType}_${graphId}${chapterString}`;
 }
 
@@ -361,6 +311,89 @@ async function queueDeleteEntries(params) {
   await batch.commit();
   logger.debug(`Deleted ${ids.length} entries from the queue`);
   return {success: true};
+}
+
+const GRAPH_ACTIVE_STATUSES = ["pending", "processing"];
+
+function toQueueEntry(doc) {
+  return {id: doc.id, ...doc.data()};
+}
+
+/**
+ * Get the pending/processing graph queue entries of a graph (any chapter).
+ * @param {Object} params
+ * @param {string} params.graphId - Graph ID
+ * @return {Promise<Array<Object>>} Active graph queue entries
+ */
+async function queueGetActiveGraphEntries({graphId}) {
+  const snapshot = await getFirestore().collection("Queue")
+      .where("params.id", "==", graphId)
+      .where("status", "in", GRAPH_ACTIVE_STATUSES)
+      .get();
+  return snapshot.docs.map(toQueueEntry).filter((entry) => entry.type === "graph");
+}
+
+/**
+ * Get every graph queue entry (any status) for one chapter of a graph. The query is scoped to the
+ * chapter (numeric or string form) so it is not affected by how many entries other chapters have.
+ * For chapter 0 it also looks up legacy docs stored without a chapter suffix (and without
+ * params.chapter), one per given entry type.
+ * @param {Object} params
+ * @param {string} params.graphId - Graph ID
+ * @param {number|string} params.chapter - Chapter index
+ * @param {Array<string>} params.legacyEntryTypes - Pipeline steps to check for legacy chapter-0 IDs
+ * @return {Promise<Array<Object>>} Graph queue entries for the chapter
+ */
+async function queueGetGraphChapterEntries({graphId, chapter, legacyEntryTypes = []}) {
+  const chapterNumber = Number(chapter);
+  const db = getFirestore();
+  const queueRef = db.collection("Queue");
+  const snapshot = await queueRef
+      .where("params.id", "==", graphId)
+      .where("params.chapter", "in", [chapterNumber, String(chapterNumber)])
+      .get();
+  const entriesById = new Map();
+  snapshot.docs.map(toQueueEntry)
+      .filter((entry) => entry.type === "graph")
+      .forEach((entry) => entriesById.set(entry.id, entry));
+
+  if (chapterNumber === 0 && legacyEntryTypes.length > 0) {
+    const legacyRefs = legacyEntryTypes.map((entryType) =>
+      queueRef.doc(graphQueueToUnique({type: "graph", entryType, graphId})));
+    const legacyDocs = await db.getAll(...legacyRefs);
+    legacyDocs
+        .filter((doc) => doc.exists)
+        .map(toQueueEntry)
+        .filter((entry) => entry.type === "graph" && entry.params?.id === graphId &&
+          Number(entry.params?.chapter ?? 0) === 0)
+        .forEach((entry) => entriesById.set(entry.id, entry));
+  }
+  return [...entriesById.values()];
+}
+
+/**
+ * Clear a chapter's finished graph queue entries so it can be re-queued (graph queue IDs are
+ * deterministic and queueAddEntries skips existing IDs). Active work is never deleted: if any
+ * entry for the chapter is pending or processing, nothing is deleted and its IDs are returned.
+ * @param {Object} params
+ * @param {string} params.graphId - Graph ID
+ * @param {number|string} params.chapter - Chapter index
+ * @param {Array<string>} params.legacyEntryTypes - Pipeline steps to check for legacy chapter-0 IDs
+ * @return {Promise<{deletedIds: Array<string>, activeIds: Array<string>}>}
+ */
+async function queueDeleteGraphChapterEntries({graphId, chapter, legacyEntryTypes = []}) {
+  const entries = await queueGetGraphChapterEntries({graphId, chapter, legacyEntryTypes});
+  const activeIds = entries
+      .filter((entry) => GRAPH_ACTIVE_STATUSES.includes(entry.status))
+      .map((entry) => entry.id);
+  if (activeIds.length > 0) {
+    return {deletedIds: [], activeIds};
+  }
+  const deletedIds = entries.map((entry) => entry.id);
+  if (deletedIds.length > 0) {
+    await queueDeleteEntries({ids: deletedIds});
+  }
+  return {deletedIds, activeIds};
 }
 
 async function queueSetItemStatuses(params) {
@@ -643,17 +676,18 @@ export {
   queueGetEntries,
   queueUpdateEntries,
   queueDeleteEntries,
+  queueGetActiveGraphEntries,
+  queueGetGraphChapterEntries,
+  queueDeleteGraphChapterEntries,
   queueNuke,
   queueSetItemsToProcessing,
   queueSetItemsToComplete,
   queueSetItemsToError,
   queueClaimPendingItems,
   stabilityQueueToUnique,
-  dalleQueueToUnique,
   graphQueueToUnique,
   aiQueueToUnique,
   modalQueueToUnique,
-  transcriptionQueueToUnique,
   batchCreate,
   batchGetStatus,
   batchUpdateStatusBulk,

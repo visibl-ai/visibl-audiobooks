@@ -1,5 +1,5 @@
 /* eslint-disable require-jsdoc */
-import {storeData, getData} from "./database.js";
+import {storeData, getData, deleteData} from "./database.js";
 import {aaxGetItemsFirestore} from "../firestore/aax.js";
 import {BOOK_RUNTIME_MIN} from "../../config/config.js";
 function userToDbRef({uid}) {
@@ -60,6 +60,11 @@ async function deleteImportedList({uid}) {
   await storeData({ref: `${userToDbRef({uid})}/importedSkus`, data: []});
 }
 
+// Removes the AAX credentials the app stores for the user, which disconnects their app from AAX.
+async function deleteAAXAuthData({uid}) {
+  await deleteData({ref: `${userToDbRef({uid})}/aaxAuthData`});
+}
+
 async function addImportedSku({uid, sku}) {
   // Get the existing list of imported SKUs
   const existingList = await getData({ref: `${userToDbRef({uid})}/importedSkus`}) || [];
@@ -81,5 +86,6 @@ export {
   usersGet,
   usersUpdateImportedList,
   deleteImportedList,
+  deleteAAXAuthData,
   addImportedSku,
 };

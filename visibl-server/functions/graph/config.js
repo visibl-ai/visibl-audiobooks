@@ -15,12 +15,6 @@ export const transcriptionSteps = {
 
 // Pipeline step weights and descriptions for v0.1
 export const pipelineStepsV01 = {
-  correctTranscriptions: {
-    weight: 5,
-    description: {
-      "en": "Polishing transcripts with a dash of AI ✨",
-    },
-  },
   entitiesByChapter: {
     weight: 5,
     description: {
@@ -113,6 +107,9 @@ export const graphStatusMessages = {
   finalizing: {
     "en": "Finalizing graph generation",
   },
+  failed: {
+    "en": "Graph generation hit a snag - retrying soon",
+  },
 };
 
 /**
@@ -142,3 +139,18 @@ export const GRAPH_PIPELINE_RETRY_MAX_DELAY = parseInt(process.env.GRAPH_PIPELIN
  * Default: 2 for standard exponential backoff
  */
 export const GRAPH_PIPELINE_RETRY_BACKOFF_MULTIPLIER = parseFloat(process.env.GRAPH_PIPELINE_RETRY_BACKOFF_MULTIPLIER || "2");
+
+/**
+ * Number of times a released (terminally failed) chapter is automatically re-queued by the
+ * chapter progress handler. Once a chapter's failure attempts reach this limit it is logged as
+ * critical and never skipped past, because later chapters depend on it.
+ * Default: 2
+ */
+export const GRAPH_CHAPTER_FAILURE_RETRY_LIMIT = parseInt(process.env.GRAPH_CHAPTER_FAILURE_RETRY_LIMIT || "2", 10);
+
+/**
+ * Minutes a graph queue entry may stay in "processing" before the checkup treats its chapter as
+ * stuck. Kept separate from the checkup threshold because image steps legitimately run long.
+ * Default: 60
+ */
+export const GRAPH_STUCK_PROCESSING_MINUTES = parseInt(process.env.GRAPH_STUCK_PROCESSING_MINUTES || "60", 10);

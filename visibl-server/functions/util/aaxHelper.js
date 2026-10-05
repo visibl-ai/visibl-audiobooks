@@ -7,6 +7,7 @@ import {AUDIBLE_OPDS_API_KEY,
   STORAGE_BUCKET_ID,
   ENVIRONMENT,
   BOOK_RUNTIME_MIN,
+  AAX_CONNECT_SOURCE,
 } from "../config/config.js";
 
 import {
@@ -16,6 +17,7 @@ import {
 import {
   usersUpdateImportedList,
   deleteImportedList,
+  deleteAAXAuthData,
 } from "../storage/realtimeDb/users.js";
 
 import {
@@ -35,7 +37,8 @@ import {
 } from "../storage/realtimeDb/catalogue.js";
 
 import {
-  libraryDeleteAllPrivateItemsRtdb,
+  libraryDeleteItemRtdb,
+  libraryGetAllRtdb,
   libraryUpdateTranscriptionStatusRtdb,
   libraryGetRtdb,
 } from "../storage/realtimeDb/library.js";
@@ -44,11 +47,11 @@ import {
   queueAddEntries,
 } from "../storage/firestore/queue.js";
 
-import {OpenRouterClient, OpenRouterMockResponse} from "../ai/openrouter/base.js";
+import {openaiLLMRequest} from "../ai/openai/openaiLLM.js";
+import {sendNotifications} from "./notifications.js";
+import {OpenAIMockResponse} from "../ai/openai/mock.js";
 
 import pLimit from "p-limit";
-
-import {sendTranscriptionToLlmWithQueue} from "../ai/transcribe/index.js";
 
 import {
   uploadFileToBucket,
@@ -270,10 +273,29 @@ function aaxcTranscribeQueueToUnique(params) {
   return `${type}_${entryType}_${uid}_${itemId}${retryString}`;
 }
 
+/**
+ * Connects an AAX account to the user. If another user has it connected, that user is disconnected
+ * and notified first, so the account is never connected to two users at once.
+ * @param {Object} params - The parameters for the function.
+ * @param {string} params.uid - The UID of the user connecting.
+ * @param {string} params.aaxUserId - The AAX account's user ID.
+ * @return {Promise<Object>} - The result of the function.
+ */
 async function connectAAXAuth({uid, aaxUserId}) {
   const existingAuth = await aaxGetAuthByAAXIdFirestore({aaxUserId});
   if (existingAuth && existingAuth.uid !== uid) {
-    return {success: false, error: "duplicate account"};
+    const previousUid = existingAuth.uid;
+    logger.info(`connectAAXAuth: AAX account ${aaxUserId} moving from ${previousUid} to ${uid}`);
+    await disconnectAAXAuth({uid: previousUid});
+    try {
+      await sendNotifications({
+        uids: [previousUid],
+        title: `${AAX_CONNECT_SOURCE.value()} disconnected`,
+        body: `Your ${AAX_CONNECT_SOURCE.value()} account was connected to another Visibl account.`,
+      });
+    } catch (error) {
+      logger.error(`connectAAXAuth: failed to notify ${previousUid}: ${error.message}`);
+    }
   }
   await aaxStoreAuthFirestore({uid, aaxUserId});
   return {success: true, message: "AAX account connected successfully"};
@@ -281,16 +303,24 @@ async function connectAAXAuth({uid, aaxUserId}) {
 
 
 /**
- * Disconnects an AAX account from the user.
+ * Disconnects an AAX account from the user: removes their AAX books from the library, their
+ * importedSkus, AAX credentials, sync records and AAXAuth link. Safe to run again.
  * @param {Object} params - The parameters for the function.
  * @param {string} params.uid - The UID of the user.
- * @param {Object} params.data - The data for the function.
- * @return {Promise<Object>} - The result of the function.
+ * @return {Promise<Object>} - The number of AAXAuth links deleted.
  */
-async function disconnectAAXAuth({uid, data}) {
-  // TODO: A lot more to delete here!
+async function disconnectAAXAuth({uid}) {
+  // AAX books are the private library items with content.aax (the decryption key the app writes).
+  // Other private items, such as the user's own uploads, stay.
+  const library = await libraryGetAllRtdb({uid}) || {};
+  const skus = Object.entries(library)
+      .filter(([, item]) => item?.visibility === "private" && item?.content?.aax)
+      .map(([sku]) => sku);
+  if (skus.length > 0) {
+    await libraryDeleteItemRtdb({uid, data: {libraryIds: skus}});
+  }
   await deleteImportedList({uid});
-  await libraryDeleteAllPrivateItemsRtdb({uid});
+  await deleteAAXAuthData({uid});
   await aaxDeleteItemsByUidFirestore({uid});
   return await setAAXConnectDisableFirestore(uid);
 }
@@ -315,13 +345,12 @@ async function updateAAXCChapterFileSizes({chapters, item, metadata}) {
 }
 
 async function classifyNovelFiction({title, author, description, uid, sku}) {
-  const openRouterClient = new OpenRouterClient();
-  const response = await openRouterClient.sendRequest({
+  const response = await openaiLLMRequest({
     prompt: "classifyNovelFiction",
     message: `${title} by ${author}, ${description}`,
     replacements: [],
     analyticsOptions: createAnalyticsOptions({uid, sku, promptId: "classifyNovelFiction"}),
-    mockResponse: new OpenRouterMockResponse({
+    mockResponse: new OpenAIMockResponse({
       content: {
         fiction: true,
       },
@@ -559,11 +588,6 @@ async function updateMetadata({uid, sku, metadata}) {
 async function submitAAXTranscription({uid, sku, chapter, transcription}) {
   logger.info(`submitAAXTranscription: Submitting transcription for item ${sku} chapter ${chapter}`);
 
-  // Get the title and author from the catalogue
-  const catalogueItem = await catalogueGetRtdb({sku});
-  const title = catalogueItem.title || "Unknown Title";
-  const author = catalogueItem.author || "Unknown Author";
-
   // Store the raw transcription in Storage bucket
   const bucketPath = `UserData/${uid}/Uploads/AAXRaw/${sku}-${chapter}.txt`;
   try {
@@ -578,10 +602,10 @@ async function submitAAXTranscription({uid, sku, chapter, transcription}) {
     throw error;
   }
 
-  // Dispatch the transcription to the LLM for correction
+  // Dispatch the transcription for formatting and stitching into the main transcription file
   await dispatchTask({
     functionName: "v1processAAXTranscription",
-    data: {uid, sku, title, author, chapter, transcription},
+    data: {uid, sku, chapter, transcription},
   });
 
   await libraryUpdateTranscriptionStatusRtdb({uid, sku, chapter, status: "processing"});
@@ -589,34 +613,23 @@ async function submitAAXTranscription({uid, sku, chapter, transcription}) {
   return {success: true, message: "Transcription submitted successfully"};
 }
 
-async function processAAXTranscription({uid, sku, title, author, chapter, transcription}) {
-  // Format the transcription for the LLM
-  const formattedChunks = await formatTranscriptionForLlm({uid, transcription, sku, chapter});
-  logger.info(`submitAAXTranscription: Successfully formatted transcription for LLM`);
+async function processAAXTranscription({uid, sku, chapter, transcription}) {
+  const formattedChunks = await formatAAXTranscription({uid, transcription, sku, chapter});
+  logger.info(`processAAXTranscription: Formatted ${formattedChunks[chapter].length} segments for ${sku} chapter ${chapter}`);
 
   try {
-    // Send the transcription to the LLM for correction
-    const replacements = [
-      {key: "TITLE", value: title},
-      {key: "AUTHOR", value: author},
-    ];
-    logger.debug(`submitAAXTranscription: Created replacements: ${JSON.stringify(replacements)}`);
-
-    logger.debug(`processAAXTranscription: formattedChunks keys: ${Object.keys(formattedChunks)}`);
-    logger.debug(`processAAXTranscription: formattedChunks[${chapter}] exists: ${formattedChunks[chapter] !== undefined}`);
-    if (formattedChunks[chapter]) {
-      logger.debug(`processAAXTranscription: formattedChunks[${chapter}] length: ${formattedChunks[chapter].length}`);
+    if (formattedChunks[chapter].length === 0) {
+      throw new Error(`Cannot process empty transcription for chapter ${chapter}`);
     }
-
-    const correctedTranscriptions = await sendTranscriptionToLlmWithQueue({
-      uid,
-      sku,
-      chapter,
-      prompt: "correctTranscription",
-      replacements: replacements,
-      message: formattedChunks[chapter], // We send only the array of transcriptions for the chapter
-      awaitCompletion: true,
+    // Store the chapter in the same segment shape as generated transcriptions ({id, text, startTime})
+    const chapterSegments = formattedChunks[chapter].map(({id, text, startTime}) => ({id, text, startTime}));
+    const chapterFilePath = getTranscriptionsPath({uid, sku, chapter});
+    await uploadFileToBucket({
+      bucketPath: chapterFilePath,
+      content: JSON.stringify(chapterSegments, null, 2),
+      contentType: "application/json",
     });
+    logger.info(`processAAXTranscription: Uploaded chapter transcription to ${chapterFilePath}`);
 
     await libraryUpdateTranscriptionStatusRtdb({uid, sku, chapter, status: "ready"});
 
@@ -663,14 +676,14 @@ async function processAAXTranscription({uid, sku, title, author, chapter, transc
       }
     }
 
-    return correctedTranscriptions;
+    return chapterSegments;
   } catch (error) {
-    logger.error(`Error processing transcription corrections: ${error.message}`, error.stack);
+    logger.error(`processAAXTranscription: Error processing transcription for ${sku} chapter ${chapter}: ${error.message}`, error.stack);
     await libraryUpdateTranscriptionStatusRtdb({uid, sku, chapter, status: "error"});
   }
 }
 
-async function formatTranscriptionForLlm({uid, transcription, sku, chapter}) {
+async function formatAAXTranscription({uid, transcription, sku, chapter}) {
   // Consolidate transcriptions in 10-second chunks
   const CHUNK_SIZE_SECONDS = 10;
   const chunks = [];
@@ -754,15 +767,8 @@ async function formatTranscriptionForLlm({uid, transcription, sku, chapter}) {
  * @param {string} aaxUserId - The AAX user ID
  */
 async function resetAAXConnection({uid, aaxUserId}) {
-  // Check previous user of the AAX connection
-  const existingAuth = await aaxGetAuthByAAXIdFirestore({aaxUserId});
-  if (existingAuth && existingAuth.uid !== uid) {
-    // Disconnect previous user
-    await disconnectAAXAuth({uid: existingAuth.uid, data: {aaxUserId}});
-  }
-
-  // Reconnect the current user
-  await connectAAXAuth({uid, aaxUserId});
+  // Connecting moves the account from any previous user to this one.
+  return await connectAAXAuth({uid, aaxUserId});
 }
 
 export {

@@ -1,4 +1,4 @@
-import {OpenRouterClient} from "../openrouter/base.js";
+import {openaiLLMRequest} from "../openai/openaiLLM.js";
 import {loadTranscriptions} from "../transcribe/transcriptionStorage.js";
 import globalPrompts from "../prompts/globalPrompts.js";
 import logger from "../../util/logger.js";
@@ -93,9 +93,8 @@ export async function extractTitleAndAuthorFromTranscription({uid, sku, transcri
 
     logger.debug(`Processing ${segmentCount} segments from ${chaptersProcessed} chapter(s) for ${sku}`);
 
-    // 3. Call DeepSeek via OpenRouter
-    const openRouterClient = new OpenRouterClient();
-    const result = await openRouterClient.sendRequest({
+    // 3. Call OpenAI
+    const result = await openaiLLMRequest({
       promptOverride: globalPrompts.EXTRACT_TITLE_AUTHOR_FROM_TRANSCRIPTION,
       message: transcriptText,
       replacements: [{key: "TRANSCRIPT", value: transcriptText}, {key: "TITLE", value: tentativeTitle || "Untitled"}],
@@ -280,10 +279,9 @@ export async function moderateMetadata({metadata, uid, sku, mockResponse}) {
       };
     }
 
-    // Call DeepSeek via OpenRouter for moderation of flagged fields only
+    // Call OpenAI for moderation of flagged fields only
     logger.info(`Sending ${Object.keys(flaggedFields).length} flagged fields to DeepSeek for ${sku}`);
-    const openRouterClient = new OpenRouterClient();
-    const result = await openRouterClient.sendRequest({
+    const result = await openaiLLMRequest({
       promptOverride: globalPrompts.MODERATE_METADATA,
       message: JSON.stringify(flaggedFields),
       replacements: [{key: "METADATA", value: JSON.stringify(flaggedFields, null, 2)}],

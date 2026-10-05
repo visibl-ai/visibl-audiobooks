@@ -35,10 +35,14 @@ import {isNetworkError} from "../util/errorHelper.js";
 
 import {
   queueAddEntries,
-  dalleQueueToUnique,
   stabilityQueueToUnique,
   modalQueueToUnique,
 } from "../storage/firestore/queue.js";
+import {openaiImageQueueToUnique} from "./queue/openaiImageQueue.js";
+import {
+  OPENAI_SCENE_IMAGE_MODEL,
+  OPENAI_SCENE_IMAGE_PARAMS,
+} from "./openai/openaiImage.js";
 
 import {styleScenesWithQueue} from "./images/style/index.js";
 import {getGraphFirestore} from "../storage/firestore/graph.js";
@@ -102,7 +106,7 @@ async function saveImageResultsMultipleScenes(params) {
   }
 }
 
-// saves image results. Expects an output from dalle3 or batchStabilityRequest.
+// Saves image results from image generation or Stability requests.
 async function saveImageResults(params) {
   const {
     images,
@@ -251,21 +255,35 @@ async function composeScenesWithQueue(params) {
   const entryParams = [];
   const uniques = [];
   scenes.forEach((scene) => {
-    logger.debug(`Adding scene to DALL-E queue: chapter ${scene.chapter}, scene ${scene.scene_number}`);
-    types.push("dalle");
-    entryTypes.push("dalle3");
+    logger.debug(`Adding scene to OpenAI image queue: chapter ${scene.chapter}, scene ${scene.scene_number}`);
+    const outputPath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${Date.now()}.jpeg`;
+    types.push("openaiImage");
+    entryTypes.push("generate");
     entryParams.push({
-      scene,
-      sceneId,
-      retry: true,
-    });
-    uniques.push(dalleQueueToUnique({
-      type: "dalle",
-      entryType: "dalle3",
-      sceneId,
+      prompt: scene.prompt || JSON.stringify({
+        description: scene.description,
+        characters: scene.characters,
+        locations: scene.locations,
+        viewpoint: scene.viewpoint,
+      }),
+      model: OPENAI_SCENE_IMAGE_MODEL,
+      modelParams: OPENAI_SCENE_IMAGE_PARAMS,
+      outputPath,
+      outputFormat: "jpeg",
+      graphId: sceneId,
+      defaultSceneId: sceneId,
+      styleId: sceneId,
+      styleTitle: "Origin",
       chapter: scene.chapter,
-      scene_number: scene.scene_number,
-      retry: true,
+      sceneNumber: scene.scene_number,
+      type: "sceneImage",
+    });
+    uniques.push(openaiImageQueueToUnique({
+      type: "openaiImage",
+      entryType: "generate",
+      graphId: sceneId,
+      identifier: `${sceneId}_${scene.chapter}_${scene.scene_number}`,
+      chapter: scene.chapter,
     }));
   });
   await queueAddEntries({
@@ -275,7 +293,7 @@ async function composeScenesWithQueue(params) {
     uniques,
   });
   await dispatchTask({
-    functionName: "launchDalleQueue",
+    functionName: "launchOpenAiImageQueue",
     data: {},
   });
   return;

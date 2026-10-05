@@ -5,3 +5,4 @@ sync-swift-from-private.sh
 visibl-server/.github
 visibl-server/env-cipher.sh
 visibl-server/sync-bindings.sh
+.DS_Store

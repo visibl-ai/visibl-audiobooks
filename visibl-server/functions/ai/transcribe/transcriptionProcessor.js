@@ -1,4 +1,4 @@
-import whisper from "../groq/whisper.js";
+import whisper from "../allmodels/whisper.js";
 import logger from "../../util/logger.js";
 import CatalogueProgressTracker from "../../storage/realtimeDb/CatalogueProgressTracker.js";
 import {mergeChunkTranscriptions, validateTimingContinuity} from "../../audio/audioChunker.js";

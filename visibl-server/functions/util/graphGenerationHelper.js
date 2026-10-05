@@ -20,8 +20,8 @@ async function checkAndInitiateGraphGeneration({uid, sku}) {
     if (catalogueItem && catalogueItem.fiction === true && !catalogueItem.graphAvailable && !catalogueItem.graphProgress?.inProgress) {
       logger.info(`Triggering automatic graph generation for fiction book ${sku}`);
       try {
-        // Use graphVersion from catalogue if available, otherwise default to v0.1
-        const version = catalogueItem.graphVersion || "v0.1";
+        // Use graphVersion from catalogue if available, otherwise default to v0.2
+        const version = catalogueItem.graphVersion || "v0.2";
         await initGraphGeneration({sku, uid, version});
         logger.info(`Successfully initiated graph generation for ${sku} with version ${version}`);
         return true;

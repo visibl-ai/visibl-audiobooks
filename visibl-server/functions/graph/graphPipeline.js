@@ -15,7 +15,12 @@ import logger from "../util/logger.js";
 import GraphPipelineFactory from "./GraphPipelineFactory.js";
 import {
   getGraphFirestore,
+  graphReleaseChapter,
+  graphResetChapterFailureAttempts,
+  normalizeChapter,
 } from "../storage/firestore/graph.js";
+import {queueGetGraphChapterEntries} from "../storage/firestore/queue.js";
+import {releaseFailedChapter, toErrorMessage} from "./chapterFailure.js";
 import {ENVIRONMENT} from "../config/config.js";
 import {
   GRAPH_PIPELINE_RETRY_LIMIT,
@@ -41,16 +46,72 @@ async function generateNewGraph(params) {
 /**
  * Continue processing a graph pipeline from a specific stage
  * @param {Object} params - Parameters including graphId and optional stage, startChapter, endChapter
+ * @param {boolean} params.retry - When true, delete the start chapter's existing graph queue docs
+ *   first so the step is actually re-queued (queue IDs are deterministic)
  * @return {Promise<void>}
  */
-async function continueGraphPipeline({graphId, stage, startChapter, endChapter}) {
+async function continueGraphPipeline({graphId, stage, startChapter, endChapter, retry = false}) {
   const graphItem = await getGraphFirestore({graphId});
   if (!graphItem || Object.keys(graphItem).length === 0) {
     throw new Error("Graph does not exist");
   }
 
   const pipeline = GraphPipelineFactory.getPipelineForGraph(graphItem);
-  return await pipeline.continueGraphPipeline({graphId, stage, startChapter, endChapter});
+  return await pipeline.continueGraphPipeline({graphId, stage, startChapter, endChapter, retry});
+}
+
+/**
+ * Manually retry a failed (or stuck) chapter: release it if it is still marked processing, reset
+ * its failure attempts, then re-queue it from the given stage. Does nothing when the chapter
+ * already has pending or processing queue work.
+ * @param {Object} params
+ * @param {string} params.graphId - Graph ID
+ * @param {number|string} params.chapter - Chapter to retry
+ * @param {string} params.stage - Optional stage to restart from (defaults to the graph's next step)
+ * @param {number|string} params.endChapter - Optional last chapter (defaults to chapter)
+ * @return {Promise<{retried: boolean, activeIds: Array<string>}>}
+ */
+async function retryFailedChapter({graphId, chapter, stage, endChapter}) {
+  const graphItem = await getGraphFirestore({graphId});
+  if (!graphItem || Object.keys(graphItem).length <= 1) {
+    throw new Error("Graph does not exist");
+  }
+  const chapterNumber = normalizeChapter(chapter);
+  const pipeline = GraphPipelineFactory.getPipelineForGraph(graphItem);
+  const chapterEntries = await queueGetGraphChapterEntries({
+    graphId,
+    chapter: chapterNumber,
+    legacyEntryTypes: pipeline.getQueueEntryTypes(),
+  });
+  const activeIds = chapterEntries
+      .filter((entry) => ["pending", "processing"].includes(entry.status))
+      .map((entry) => entry.id);
+  if (activeIds.length > 0) {
+    logger.info(`${graphId} retryFailedChapter: chapter ${chapterNumber} already has active queue entries [${activeIds.join(", ")}], not retrying`);
+    return {retried: false, activeIds};
+  }
+
+  const processingChapters = (graphItem.processingChapters || []).map(normalizeChapter);
+  if (processingChapters.includes(chapterNumber)) {
+    // Release without surfacing an error to users: this is an operator action, not a failure
+    await graphReleaseChapter({
+      graphId,
+      chapter: chapterNumber,
+      step: stage || graphItem.nextGraphStep || null,
+      error: "manual retry requested",
+      releasedBy: "admin",
+    });
+  }
+  await graphResetChapterFailureAttempts({graphId, chapter: chapterNumber});
+  logger.info(`${graphId} retryFailedChapter: re-queuing chapter ${chapterNumber}`);
+  await continueGraphPipeline({
+    graphId,
+    stage,
+    startChapter: chapterNumber,
+    endChapter: endChapter ?? chapterNumber,
+    retry: true,
+  });
+  return {retried: true, activeIds};
 }
 
 /**
@@ -148,7 +209,7 @@ async function graphQueue() {
         });
 
         logger.warn(`graphQueue: Error processing ${queue[0].id} (attempt ${retryCount + 1}/${maxRetries}). ` +
-                    `Will retry in ${delayMs}ms: ${error?.message || (typeof error === "string" ? error : JSON.stringify(error)) || "Unknown error"}`);
+                    `Will retry in ${delayMs}ms: ${toErrorMessage(error)}`);
 
         // Update the queue entry to pending after the delay
         await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -163,9 +224,21 @@ async function graphQueue() {
         logger.debug(`graphQueue: Updated queue entry ${queue[0].id} to pending with retry count ${newRetryCount}`);
       } else {
         // Only mark as error when retries are exhausted
-        await queueSetItemsToError({queue});
-        logger.critical(`graphQueue: Terminal error processing ${queue[0].id} after ${maxRetries} retries: ` +
-                       `${error?.message || (typeof error === "string" ? error : JSON.stringify(error)) || "Unknown error"}`);
+        const errorMessage = toErrorMessage(error);
+        await queueSetItemsToError({queue, error: errorMessage});
+        logger.critical(`graphQueue: Terminal error processing ${queue[0].id} after ${maxRetries} retries: ${errorMessage}`);
+        // Release the chapter so it no longer blocks the chapter progress handler
+        await releaseFailedChapter({
+          graphId: graphItem.id,
+          sku: graphItem.sku,
+          uid: graphItem.uid,
+          chapter: graphItem.chapter ?? 0,
+          step: queue[0].entryType,
+          error,
+          queueId: queue[0].id,
+          retryCount,
+          releasedBy: "graphQueue",
+        });
       }
     }
   }
@@ -180,7 +253,7 @@ async function graphQueue() {
  * @param {Object} params - Parameters including sku, uid, and replace flag
  * @return {Promise<void>}
  */
-async function initGraphGeneration({sku, uid, replace = false, version = "v0.1"}) {
+async function initGraphGeneration({sku, uid, replace = false, version = "v0.2"}) {
   const pipeline = GraphPipelineFactory.getPipeline(version);
   return await pipeline.initGraphGeneration({sku, uid, replace});
 }
@@ -189,5 +262,6 @@ export {
   generateNewGraph,
   graphQueue,
   continueGraphPipeline,
+  retryFailedChapter,
   initGraphGeneration,
 };

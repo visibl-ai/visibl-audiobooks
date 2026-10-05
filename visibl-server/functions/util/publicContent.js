@@ -18,7 +18,7 @@ import {
 
 async function processRawPublicItem(req) {
   const sku = req.body.sku;
-  const version = req.body.version || "v0.1"; // Default to v0.1 if not specified
+  const version = req.body.version || "v0.2"; // Default to v0.2 if not specified
   if (!sku) {
     return {
       error: true,
@@ -55,7 +55,7 @@ async function processRawPublicItem(req) {
   return;
 }
 
-async function addSkuToCatalogue(uid, metadata, visibility, version = "v0.1") {
+async function addSkuToCatalogue(uid, metadata, visibility, version = "v0.2") {
   logger.info(`Updating catalogue with metadata for item ${metadata.sku}`);
   const catalogueItem = await catalogueGetRtdb({sku: metadata.sku});
   if (catalogueItem) {

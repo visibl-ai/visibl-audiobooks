@@ -95,7 +95,6 @@ export const v1AdminStyleScenes = onRequest(firebaseHttpFnConfig, async (req, re
   await styleScenesWithQueue(req.body);
   res.status(200).send({
     success: true,
-    message: `Queued ${req.body.scenes.length} scenes for styling with ${req.body.provider || "stability"}`,
+    message: `Queued ${req.body.scenes.length} scenes for styling with ${req.body.provider || "openaiImage"}`,
   });
 });
-

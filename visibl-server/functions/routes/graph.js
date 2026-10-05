@@ -26,6 +26,7 @@ import {
   generateNewGraph,
   graphQueue,
   continueGraphPipeline as continueGraphPipelineFunc,
+  retryFailedChapter,
 } from "../graph/graphPipeline.js";
 
 import {
@@ -84,6 +85,16 @@ export const v1getGraphs = onRequest(firebaseHttpFnConfig, async (req, res) => {
 
 export const v1continueGraph = onRequest(firebaseHttpFnConfig, async (req, res) => {
   await validateOnRequestAdmin(req);
+  if (req.body?.retry) {
+    const {graphId, stage, endChapter} = req.body;
+    const chapter = req.body.chapter ?? req.body.startChapter;
+    if (chapter === undefined || chapter === null || chapter === "" || Number.isNaN(Number(chapter))) {
+      res.status(400).send({error: "retry requires a numeric chapter (or startChapter)"});
+      return;
+    }
+    res.status(200).send(await retryFailedChapter({graphId, chapter, stage, endChapter}));
+    return;
+  }
   res.status(200).send(await continueGraphPipelineFunc({
     ...req.body,
   }));
@@ -100,8 +111,8 @@ export const continueGraphPipeline = onTaskDispatched(
     mediumDispatchInstance({maxConcurrentDispatches: 50}),
     async (req) => {
       logger.debug(`continueGraphPipeline task: ${JSON.stringify(req.data)}`);
-      const {graphId, stage, startChapter, endChapter} = req.data;
-      return await continueGraphPipelineFunc({graphId, stage, startChapter, endChapter});
+      const {graphId, stage, startChapter, endChapter, retry} = req.data;
+      return await continueGraphPipelineFunc({graphId, stage, startChapter, endChapter, retry});
     });
 
 export const v1graphContents = onRequest(firebaseHttpFnConfig, async (req, res) => {

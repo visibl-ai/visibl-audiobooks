@@ -43,8 +43,8 @@ import {
 import {
   wavespeedQueueToUnique,
 } from "../../ai/queue/wavespeedQueue.js";
-import {falQueueToUnique} from "../../ai/queue/falQueue.js";
-import {FAL_SEEDREAM_TEXT_TO_IMAGE_MODEL, FAL_PORTRAIT_SIZE} from "../../ai/fal/fal.js";
+import {openaiImageQueueToUnique} from "../../ai/queue/openaiImageQueue.js";
+import {OPENAI_SCENE_IMAGE_MODEL, OPENAI_SCENE_IMAGE_PARAMS} from "../../ai/openai/openaiImage.js";
 
 import {
   dispatchTask,
@@ -53,8 +53,9 @@ import {
 import logger from "../../util/logger.js";
 import {createAnalyticsOptions} from "../../analytics/index.js";
 
-import graphPrompts from "./graphV0_1Prompts.js";
-import {OpenRouterClient, OpenRouterMockResponse} from "../../ai/openrouter/base.js";
+import graphPrompts from "./graphV0_2Prompts.js";
+import {openaiLLMRequest} from "../../ai/openai/openaiLLM.js";
+import {OpenAIMockResponse} from "../../ai/openai/mock.js";
 
 const CHUNK_SIZE = 25; // Number of transcription segments per chunk
 const MIN_CHAPTER_DURATION = 30; // Minimum chapter duration in seconds
@@ -93,11 +94,9 @@ function transcriptionsToText(transcriptions) {
  * @return {Promise<Array<Object>>} Array of consolidated characters with name and aliases
  */
 async function consolidateCharacters({characterNames, chapterText, replacements, uid, graphId, sku}) {
-  const openRouterClient = new OpenRouterClient();
   // TODO: reduce thinking if we fail (from medium to low)
-  const result = await openRouterClient.sendRequest({
-    promptOverride: graphPrompts["v0_1_consolidate_characters"],
-    modelOverride: graphPrompts["v0_1_consolidate_characters"].openRouterModel,
+  const result = await openaiLLMRequest({
+    promptOverride: graphPrompts["v0_2_consolidate_characters"],
     message: chapterText,
     replacements: [
       {
@@ -113,7 +112,7 @@ async function consolidateCharacters({characterNames, chapterText, replacements,
         value: JSON.stringify(characterNames, null, 2),
       },
     ],
-    mockResponse: new OpenRouterMockResponse({
+    mockResponse: new OpenAIMockResponse({
       content: {
         characters: characterNames.slice(0, 5).map((name, index) => ({
           name: name,
@@ -121,7 +120,7 @@ async function consolidateCharacters({characterNames, chapterText, replacements,
         })),
       },
     }),
-    analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_consolidate_characters"}),
+    analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_consolidate_characters"}),
   });
   if (result.error) {
     throw new Error(`Error consolidating characters: ${result.error}`);
@@ -142,12 +141,8 @@ async function consolidateCharacters({characterNames, chapterText, replacements,
  * @return {Promise<Array<Object>>} Array of consolidated locations with name and aliases
  */
 async function consolidateLocations({locationNames, chapterText, replacements, uid, sku, graphId}) {
-  const openRouterClient = new OpenRouterClient();
-
-
-  const result = await openRouterClient.sendRequest({
-    promptOverride: graphPrompts["v0_1_consolidate_locations"],
-    modelOverride: graphPrompts["v0_1_consolidate_locations"].openRouterModel,
+  const result = await openaiLLMRequest({
+    promptOverride: graphPrompts["v0_2_consolidate_locations"],
     message: chapterText,
     replacements: [
       {
@@ -163,8 +158,8 @@ async function consolidateLocations({locationNames, chapterText, replacements, u
         value: JSON.stringify(locationNames, null, 2),
       },
     ],
-    analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_consolidate_locations"}),
-    mockResponse: new OpenRouterMockResponse({
+    analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_consolidate_locations"}),
+    mockResponse: new OpenAIMockResponse({
       content: {
         locations: locationNames.slice(0, 5).map((name, index) => ({
           name: name,
@@ -215,7 +210,6 @@ async function graphCharactersByChapter(params) {
   // Get transcriptions for this chapter
   const chapterTranscriptions = transcriptions[chapter];
 
-  const openRouterClient = new OpenRouterClient();
   const duration = getChapterDuration(chapterTranscriptions);
 
   if (duration < MIN_CHAPTER_DURATION) {
@@ -246,9 +240,8 @@ async function graphCharactersByChapter(params) {
     logger.debug(`${graphId} Processing chunk ${i + 1} of ${chunks.length} for chapter ${chapter}`);
 
 
-    const result = await openRouterClient.sendRequest({
-      promptOverride: graphPrompts["v0_1_get_characters_chunk"],
-      // modelOverride: "deepseek/deepseek-chat-v3-0324",
+    const result = await openaiLLMRequest({
+      promptOverride: graphPrompts["v0_2_get_characters_chunk"],
       message: chunkText,
       replacements: [{
         key: "NOVEL_TITLE",
@@ -257,7 +250,7 @@ async function graphCharactersByChapter(params) {
         key: "AUTHOR",
         value: author,
       }],
-      mockResponse: new OpenRouterMockResponse({
+      mockResponse: new OpenAIMockResponse({
         content: {
           characters: [
             `mockcharacter (01)`, // Test for parentheses and spaces
@@ -269,13 +262,13 @@ async function graphCharactersByChapter(params) {
           ],
         },
       }),
-      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_get_characters_chunk"}),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_get_characters_chunk"}),
     });
 
     // We don't throw here because we are chunking, and can hopefully still have a
     // reasonably constructed graph if we miss a chunk here and there.
     // if (result.error) {
-    //   throw new Error(`OpenRouter API error: ${result.error} - ${result.details || "Unknown error"}`);
+    //   throw new Error(`OpenAI API error: ${result.error} - ${result.details || "Unknown error"}`);
     // }
 
     if (result.result && result.result.characters) {
@@ -437,7 +430,6 @@ async function graphLocationsByChapter(params) {
   // Get transcriptions for this chapter
   const chapterTranscriptions = transcriptions[chapter];
 
-  const openRouterClient = new OpenRouterClient();
   const duration = getChapterDuration(chapterTranscriptions);
 
   if (duration < MIN_CHAPTER_DURATION) {
@@ -465,9 +457,8 @@ async function graphLocationsByChapter(params) {
     logger.debug(`${graphId} Processing chunk ${i + 1} of ${chunks.length} for chapter ${chapter}`);
 
 
-    const result = await openRouterClient.sendRequest({
-      promptOverride: graphPrompts["v0_1_get_locations_chunk"],
-      modelOverride: "openai/gpt-4.1",
+    const result = await openaiLLMRequest({
+      promptOverride: graphPrompts["v0_2_get_locations_chunk"],
       message: chunkText,
       replacements: [{
         key: "NOVEL_TITLE",
@@ -476,7 +467,7 @@ async function graphLocationsByChapter(params) {
         key: "AUTHOR",
         value: author,
       }],
-      mockResponse: new OpenRouterMockResponse({
+      mockResponse: new OpenAIMockResponse({
         content: {
           locations: [
             `mocklocation01`,
@@ -488,14 +479,14 @@ async function graphLocationsByChapter(params) {
           ],
         },
       }),
-      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_get_locations_chunk"}),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_get_locations_chunk"}),
     });
 
     // Check for API errors and throw if present
     // We don't throw here because we are chunking, and can hopefully still have a
     // reasonably constructed graph if we miss a chunk here and there.
     // if (result.error) {
-    //   throw new Error(`OpenRouter API error: ${result.error} - ${result.details || "Unknown error"}`);
+    //   throw new Error(`OpenAI API error: ${result.error} - ${result.details || "Unknown error"}`);
     // }
 
     if (result.result && result.result.locations) {
@@ -645,7 +636,6 @@ async function graphCharacterPropertiesByChapter(params) {
   const fullChapterText = transcriptionsToText(chapterTranscriptions);
   logger.debug(`${graphId} Processing full chapter ${chapter} text for character properties (${chapterTranscriptions.length} segments)`);
 
-  const openRouterClient = new OpenRouterClient();
 
   // 4. Process each character individually with the full chapter text
   const characterPromises = consolidatedCharacters.characters.map(async (character, i) => {
@@ -654,9 +644,8 @@ async function graphCharacterPropertiesByChapter(params) {
 
     logger.debug(`${graphId} Processing properties for character ${i + 1}/${consolidatedCharacters.characters.length}: ${characterName} in chapter ${chapter}`);
 
-    const result = await openRouterClient.sendRequest({
-      promptOverride: graphPrompts["v0_1_character_properties_single"],
-      modelOverride: graphPrompts["v0_1_character_properties_single"].openRouterModel,
+    const result = await openaiLLMRequest({
+      promptOverride: graphPrompts["v0_2_character_properties_single"],
       message: fullChapterText,
       replacements: [
         {
@@ -676,8 +665,8 @@ async function graphCharacterPropertiesByChapter(params) {
           value: characterAliases,
         },
       ],
-      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_character_properties_single"}),
-      mockResponse: new OpenRouterMockResponse({
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_character_properties_single"}),
+      mockResponse: new OpenAIMockResponse({
         content: {
           properties: [
             {
@@ -852,7 +841,6 @@ async function graphLocationPropertiesByChapter(params) {
   const fullChapterText = transcriptionsToText(chapterTranscriptions);
   logger.debug(`${graphId} Processing full chapter ${chapter} text for location properties (${chapterTranscriptions.length} segments)`);
 
-  const openRouterClient = new OpenRouterClient();
 
   // 4. Process each location individually with the full chapter text
   const locationPromises = consolidatedLocations.locations.map(async (location, i) => {
@@ -861,9 +849,8 @@ async function graphLocationPropertiesByChapter(params) {
 
     logger.debug(`${graphId} Processing properties for location ${i + 1}/${consolidatedLocations.locations.length}: ${locationName} in chapter ${chapter}`);
 
-    const result = await openRouterClient.sendRequest({
-      promptOverride: graphPrompts["v0_1_location_properties_single"],
-      modelOverride: graphPrompts["v0_1_location_properties_single"].openRouterModel,
+    const result = await openaiLLMRequest({
+      promptOverride: graphPrompts["v0_2_location_properties_single"],
       message: fullChapterText,
       replacements: [
         {
@@ -883,7 +870,7 @@ async function graphLocationPropertiesByChapter(params) {
           value: locationAliases,
         },
       ],
-      mockResponse: new OpenRouterMockResponse({
+      mockResponse: new OpenAIMockResponse({
         content: {
           properties: [
             {
@@ -899,7 +886,7 @@ async function graphLocationPropertiesByChapter(params) {
           ],
         },
       }),
-      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_location_properties_single"}),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_location_properties_single"}),
     });
 
     // Moe to fix - don't throw, log a big warning but we need to move on.
@@ -1067,7 +1054,6 @@ async function generateCharacterImagePrompts(params) {
 
   logger.debug(`${graphId} Processing image prompts for ${characterProperties.size} characters in chapter ${chapter}`);
 
-  const openRouterClient = new OpenRouterClient();
 
   // 4. Generate image prompts for all characters in parallel
   const promptPromises = Array.from(characterProperties.entries()).map(async ([charName, properties]) => {
@@ -1080,9 +1066,8 @@ async function generateCharacterImagePrompts(params) {
 
     logger.debug(`${graphId} Generating image prompt for ${charName} with ${properties.length} properties`);
 
-    const result = await openRouterClient.sendRequest({
-      promptOverride: graphPrompts["v0_1_character_image_prompt"],
-      modelOverride: graphPrompts["v0_1_character_image_prompt"].openRouterModel,
+    const result = await openaiLLMRequest({
+      promptOverride: graphPrompts["v0_2_character_image_prompt"],
       message: message,
       replacements: [
         {
@@ -1094,13 +1079,13 @@ async function generateCharacterImagePrompts(params) {
           value: author,
         },
       ],
-      mockResponse: new OpenRouterMockResponse({
+      mockResponse: new OpenAIMockResponse({
         content: {
           character: charName,
           description: `Mock image description for ${charName}: A detailed portrait showing distinctive features including ${properties.length > 0 ? properties[0].property : "unique characteristics"}.`,
         },
       }),
-      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_character_image_prompt"}),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_character_image_prompt"}),
     });
 
     // We throw as this is pretty critical to the graph.
@@ -1217,7 +1202,6 @@ async function generateLocationImagePrompts(params) {
 
   logger.debug(`${graphId} Processing image prompts for ${locationProperties.size} locations in chapter ${chapter}`);
 
-  const openRouterClient = new OpenRouterClient();
 
   // 4. Generate image prompts for all locations in parallel
   const promptPromises = Array.from(locationProperties.entries()).map(async ([locName, properties]) => {
@@ -1231,9 +1215,8 @@ async function generateLocationImagePrompts(params) {
     logger.debug(`${graphId} Generating image prompt for ${locName} with ${properties.length} properties`);
 
 
-    const result = await openRouterClient.sendRequest({
-      promptOverride: graphPrompts["v0_1_location_image_prompt"],
-      modelOverride: graphPrompts["v0_1_location_image_prompt"].openRouterModel,
+    const result = await openaiLLMRequest({
+      promptOverride: graphPrompts["v0_2_location_image_prompt"],
       message: message,
       replacements: [
         {
@@ -1245,13 +1228,13 @@ async function generateLocationImagePrompts(params) {
           value: author,
         },
       ],
-      mockResponse: new OpenRouterMockResponse({
+      mockResponse: new OpenAIMockResponse({
         content: {
           location: locName,
           description: `Mock image description for ${locName}: A sweeping vista featuring ${properties.length > 0 ? properties[0].property : "distinctive landmarks"}.`,
         },
       }),
-      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_location_image_prompt"}),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_location_image_prompt"}),
     });
 
     // We throw as this is pretty critical to the graph.
@@ -1295,7 +1278,7 @@ async function generateLocationImagePrompts(params) {
 }
 
 /**
- * Generates images for characters in a specific chapter using wavespeed
+ * Generates images for characters in a specific chapter using OpenAI (gpt-image)
  * @param {Object} params - The parameters object
  * @param {string} params.uid - User ID
  * @param {string} params.sku - Book SKU
@@ -1368,7 +1351,7 @@ async function generateCharacterImages(params) {
 
   logger.info(`${graphId} Processing ${filteredPrompts.length} referenced character images for chapter ${chapter} (filtered from ${chapterPrompts.characterPrompts.length})`);
 
-  // 5. Prepare queue entries for wavespeed
+  // 5. Prepare queue entries for the OpenAI image queue
   const types = [];
   const entryTypes = [];
   const entryParams = [];
@@ -1388,7 +1371,7 @@ async function generateCharacterImages(params) {
     const normalizedIdentifier = normalizeCharacterName(character);
 
     // Prepare queue entry
-    types.push("fal");
+    types.push("openaiImage");
     entryTypes.push("generate");
 
     // Create output path
@@ -1398,12 +1381,10 @@ async function generateCharacterImages(params) {
 
     entryParams.push({
       prompt: prompt,
-      model: FAL_SEEDREAM_TEXT_TO_IMAGE_MODEL,
+      model: OPENAI_SCENE_IMAGE_MODEL,
       outputPath: outputPath,
       outputFormat: "jpeg",
-      modelParams: {
-        image_size: FAL_PORTRAIT_SIZE,
-      },
+      modelParams: OPENAI_SCENE_IMAGE_PARAMS,
       graphId,
       chapter,
       identifier: normalizedIdentifier,
@@ -1413,8 +1394,8 @@ async function generateCharacterImages(params) {
     });
 
     // Generate unique key for deduplication
-    const uniqueKey = falQueueToUnique({
-      type: "fal",
+    const uniqueKey = openaiImageQueueToUnique({
+      type: "openaiImage",
       entryType: "generate",
       graphId,
       identifier: normalizedIdentifier,
@@ -1435,9 +1416,9 @@ async function generateCharacterImages(params) {
     if (queueResult.success) {
       logger.info(`${graphId} Queued ${types.length} character images for chapter ${chapter}`);
 
-      // Dispatch the fal queue to process the entries
+      // Dispatch the OpenAI image queue to process the entries
       await dispatchTask({
-        functionName: "launchFalQueue",
+        functionName: "launchOpenAiImageQueue",
         data: {},
       });
     } else {
@@ -1585,7 +1566,7 @@ async function generateCharacterProfileImages(params) {
 }
 
 /**
- * Generates images for locations in a specific chapter using wavespeed
+ * Generates images for locations in a specific chapter using OpenAI (gpt-image)
  * @param {Object} params - The parameters object
  * @param {string} params.uid - User ID
  * @param {string} params.sku - Book SKU
@@ -1657,7 +1638,7 @@ async function generateLocationImages(params) {
 
   logger.debug(`${graphId} Processing ${filteredPrompts.length} referenced location images for chapter ${chapter} (filtered from ${chapterPrompts.locationPrompts.length})`);
 
-  // 5. Prepare queue entries for wavespeed
+  // 5. Prepare queue entries for the OpenAI image queue
   const types = [];
   const entryTypes = [];
   const entryParams = [];
@@ -1678,7 +1659,7 @@ async function generateLocationImages(params) {
     const normalizedIdentifier = sanitizedKey.toLowerCase().replace(/\s+/g, "_");
 
     // Prepare queue entry
-    types.push("fal");
+    types.push("openaiImage");
     entryTypes.push("generate");
 
     // Create output path
@@ -1688,12 +1669,10 @@ async function generateLocationImages(params) {
 
     entryParams.push({
       prompt: prompt,
-      model: FAL_SEEDREAM_TEXT_TO_IMAGE_MODEL,
+      model: OPENAI_SCENE_IMAGE_MODEL,
       outputPath: outputPath,
       outputFormat: "jpeg",
-      modelParams: {
-        image_size: FAL_PORTRAIT_SIZE,
-      },
+      modelParams: OPENAI_SCENE_IMAGE_PARAMS,
       graphId,
       chapter,
       identifier: normalizedIdentifier,
@@ -1703,8 +1682,8 @@ async function generateLocationImages(params) {
     });
 
     // Generate unique key for deduplication
-    const uniqueKey = falQueueToUnique({
-      type: "fal",
+    const uniqueKey = openaiImageQueueToUnique({
+      type: "openaiImage",
       entryType: "generate",
       graphId,
       identifier: normalizedIdentifier,
@@ -1725,9 +1704,9 @@ async function generateLocationImages(params) {
     if (queueResult.success) {
       logger.debug(`${graphId} Queued ${types.length} location images for chapter ${chapter}`);
 
-      // Dispatch the fal queue to process the entries
+      // Dispatch the OpenAI image queue to process the entries
       await dispatchTask({
-        functionName: "launchFalQueue",
+        functionName: "launchOpenAiImageQueue",
         data: {},
       });
     } else {
@@ -1792,22 +1771,20 @@ async function summarizeCharacterImagePrompts(params) {
     return;
   }
 
-  const openRouterClient = new OpenRouterClient();
   const characterPromptSummaries = {};
 
   // 3. Summarize each character's description
   const summaryPromises = chapterPrompts.characterPrompts.map(async ({character, description}) => {
     logger.debug(`${graphId} Summarizing description for ${character}`);
 
-    const result = await openRouterClient.sendRequest({
-      promptOverride: graphPrompts["v0_1_character_image_summarize"],
-      modelOverride: graphPrompts["v0_1_character_image_summarize"].openRouterModel,
+    const result = await openaiLLMRequest({
+      promptOverride: graphPrompts["v0_2_character_image_summarize"],
       message: description,
       replacements: [], // No replacements needed for this prompt
-      mockResponse: new OpenRouterMockResponse({
+      mockResponse: new OpenAIMockResponse({
         content: `Mock summary for ${character}: A concise description highlighting key visual features.`,
       }),
-      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_character_image_summarize"}),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_character_image_summarize"}),
     });
 
     // We throw as this is pretty critical to the graph.
@@ -1928,7 +1905,6 @@ async function summarizeLocationImagePrompts(params) {
     return;
   }
 
-  const openRouterClient = new OpenRouterClient();
   const locationPromptSummaries = {};
 
   // 3. Summarize each location's description
@@ -1936,15 +1912,14 @@ async function summarizeLocationImagePrompts(params) {
     logger.debug(`${graphId} Summarizing description for ${location}`);
 
 
-    const result = await openRouterClient.sendRequest({
-      promptOverride: graphPrompts["v0_1_location_image_summarize"],
-      modelOverride: graphPrompts["v0_1_location_image_summarize"].openRouterModel,
+    const result = await openaiLLMRequest({
+      promptOverride: graphPrompts["v0_2_location_image_summarize"],
       message: description,
       replacements: [], // No replacements needed for this prompt
-      mockResponse: new OpenRouterMockResponse({
+      mockResponse: new OpenAIMockResponse({
         content: `Mock summary for ${location}: A brief overview of the location's key features.`,
       }),
-      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_1_location_image_summarize"}),
+      analyticsOptions: createAnalyticsOptions({uid, graphId, sku, promptId: "v0_2_location_image_summarize"}),
     });
 
     // We throw as this is pretty critical to the graph.

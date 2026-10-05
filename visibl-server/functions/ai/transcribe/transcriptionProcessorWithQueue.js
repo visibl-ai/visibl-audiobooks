@@ -1,14 +1,14 @@
 import logger from "../../util/logger.js";
 import CatalogueProgressTracker from "../../storage/realtimeDb/CatalogueProgressTracker.js";
 import {mergeChunkTranscriptions, validateTimingContinuity} from "../../audio/audioChunker.js";
-import {groqQueue} from "../queue/groqQueue.js";
+import {allmodelsQueue} from "../queue/allmodelsQueue.js";
 import {queueGetEntries} from "../../storage/firestore/queue.js";
 import {getSplitAudioPath} from "../../audio/audioMetadata.js";
 import path from "path";
 import {shutdownAnalytics} from "../../analytics/index.js";
 
 /**
- * Transcribe audio files using GroqQueue for all chapter chunks
+ * Transcribe audio files using AllModelsQueue for all chapter chunks
  * @param {Object} bookData - Book metadata including title, author, and chapters
  * @param {Array} chunkFiles - Array of chunk file paths
  * @param {Object} chapterToChunksMap - Mapping of chapters to their chunks
@@ -27,7 +27,7 @@ async function transcribeChaptersWithQueue({bookData, chunkFiles, chapterToChunk
   const bucketBasePath = getSplitAudioPath(uid, sku);
 
   // Generate batch ID for tracking all chunks
-  const batchId = groqQueue.generateBatchId();
+  const batchId = allmodelsQueue.generateBatchId();
   logger.info(`transcribeChaptersWithQueue: Starting batch ${batchId} with ${totalChunks} chunks`);
 
   // Prepare all queue entries
@@ -65,7 +65,7 @@ async function transcribeChaptersWithQueue({bookData, chunkFiles, chapterToChunk
 
       // Create queue entry for this chunk
       queueEntries.push({
-        model: "whisper-large-v3-turbo",
+        model: "groq/whisper-large-v3-turbo",
         params: {
           entryType: "whisperTranscribe",
           audioPath: bucketPath, // Use bucket path instead of local path
@@ -84,10 +84,10 @@ async function transcribeChaptersWithQueue({bookData, chunkFiles, chapterToChunk
     }
   }
 
-  logger.debug(`transcribeChaptersWithQueue: Adding ${queueEntries.length} chunks to GroqQueue`);
+  logger.debug(`transcribeChaptersWithQueue: Adding ${queueEntries.length} chunks to AllModelsQueue`);
 
   // Add all entries to the queue as a batch, process, and wait for completion
-  await groqQueue.addToQueueBatchAndWait({
+  await allmodelsQueue.addToQueueBatchAndWait({
     entries: queueEntries,
     batchId,
     metadata: {
@@ -123,7 +123,7 @@ async function transcribeChaptersWithQueue({bookData, chunkFiles, chapterToChunk
   const chapterResults = {};
 
   for (const entry of batchEntries) {
-    const params = await groqQueue.getParams({queueEntry: entry});
+    const params = await allmodelsQueue.getParams({queueEntry: entry});
     const chapterIndex = params.chapterIndex;
     const chunkIndex = params.chunkIndex;
 
@@ -136,7 +136,7 @@ async function transcribeChaptersWithQueue({bookData, chunkFiles, chapterToChunk
 
     if (entry.result?.result?.resultGcsPath) {
       // Result is stored in GCS, need to fetch it
-      transcriptionResult = await groqQueue.getAndDeleteResult({
+      transcriptionResult = await allmodelsQueue.getAndDeleteResult({
         resultGcsPath: entry.result.result.resultGcsPath,
       });
     }

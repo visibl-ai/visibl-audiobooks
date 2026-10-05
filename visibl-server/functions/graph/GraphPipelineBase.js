@@ -4,11 +4,14 @@ import {
   createGraph,
   updateGraphStatus,
   updateGraph,
+  graphMarkChapterProcessing,
+  normalizeChapter,
 } from "../storage/firestore/graph.js";
 
 import {
   queueAddEntries,
   graphQueueToUnique,
+  queueDeleteGraphChapterEntries,
 } from "../storage/firestore/queue.js";
 
 import {
@@ -36,6 +39,15 @@ import {
 } from "../util/notifications.js";
 
 import {getInstance as getAnalytics} from "../analytics/bookPipelineAnalytics.js";
+
+// Queue-param fields that must never be written back to the Graph doc from a step snapshot
+const SNAPSHOT_FIELDS_NOT_WRITTEN_BACK = [
+  "processingChapters",
+  "completedChapters",
+  "failedChapters",
+  "retryCount",
+  "forceRetryHandling",
+];
 
 /**
  * Abstract base class for graph pipeline implementations
@@ -119,29 +131,18 @@ export default class GraphPipelineBase {
 
     // Set the starting chapter if provided
     if (startChapter !== undefined) {
-      newGraph.chapter = startChapter;
-      logger.debug(`${newGraph.id} generateNewGraph: Starting at chapter ${startChapter}`);
+      const chapter = normalizeChapter(startChapter);
+      newGraph.chapter = chapter;
+      logger.debug(`${newGraph.id} generateNewGraph: Starting at chapter ${chapter}`);
 
-      // Initialize processingChapters with the starting chapter
-      if (!newGraph.processingChapters) {
-        newGraph.processingChapters = [];
-      }
-      if (!newGraph.processingChapters.includes(startChapter)) {
-        newGraph.processingChapters.push(startChapter);
-        // Update the graph in Firestore with processingChapters
-        await updateGraph({
-          graphData: {
-            id: newGraph.id,
-            processingChapters: newGraph.processingChapters,
-          },
-        });
-        logger.info(`${newGraph.id} Marked chapter ${startChapter} as processing for new graph ${newGraph.id}`);
-      }
+      await graphMarkChapterProcessing({graphId: newGraph.id, chapter});
+      newGraph.processingChapters = [...new Set([...(newGraph.processingChapters || []), chapter])];
+      logger.info(`${newGraph.id} Marked chapter ${chapter} as processing for new graph ${newGraph.id}`);
     }
 
     // Set the ending chapter if provided
     if (endChapter !== undefined) {
-      newGraph.endChapter = endChapter;
+      newGraph.endChapter = normalizeChapter(endChapter);
       logger.debug(`${newGraph.id} generateNewGraph: Will end at chapter ${endChapter}`);
     }
 
@@ -165,15 +166,32 @@ export default class GraphPipelineBase {
   }
 
   /**
+   * Get every entry type a queue doc of this pipeline may carry, for looking up existing queue
+   * docs by their deterministic IDs. Subclasses add steps that were removed from the pipeline.
+   * @return {string[]} Queue entry types
+   */
+  getQueueEntryTypes() {
+    return Object.values(this.getPipelineSteps());
+  }
+
+  /**
    * Continue processing a graph pipeline from a specific stage
    * @param {Object} params - Parameters including graphId and optional stage, startChapter, endChapter
+   * @param {boolean} params.retry - Marks the call as a retry of a failed chapter; only affects
+   *   logging. With a startChapter, that chapter's finished (complete/error) graph queue docs are
+   *   always deleted first so their deterministic IDs do not block re-queuing, and the call is a
+   *   no-op when the chapter already has pending or processing entries.
    * @return {Promise<void>}
    */
-  async continueGraphPipeline({graphId, stage, startChapter, endChapter}) {
+  async continueGraphPipeline({graphId, stage, startChapter, endChapter, retry = false}) {
     const graphItem = await getGraphFirestore({graphId});
     if (!graphItem || Object.keys(graphItem).length === 0) {
       throw new Error("Graph does not exist");
     }
+
+    // Retry state belongs to a single queue entry; never carry it over from the Graph doc
+    delete graphItem.retryCount;
+    delete graphItem.forceRetryHandling;
 
     let nextStep = graphItem.nextGraphStep;
     if (!nextStep) {
@@ -185,28 +203,33 @@ export default class GraphPipelineBase {
 
     // Set the starting chapter if provided
     if (startChapter !== undefined) {
-      graphItem.chapter = startChapter;
-      logger.debug(`${graphId} continueGraphPipeline: Starting at chapter ${startChapter}`);
+      const chapter = normalizeChapter(startChapter);
+      graphItem.chapter = chapter;
+      logger.debug(`${graphId} continueGraphPipeline: Starting at chapter ${chapter}`);
 
-      // Initialize processingChapters array if needed and mark chapter as processing
-      if (!graphItem.processingChapters) {
-        graphItem.processingChapters = [];
+      // Queue doc IDs are deterministic per chapter and step, so finished docs from an earlier
+      // run would make queueAddEntries skip the new entry. Concurrent progress events can both
+      // dispatch this chapter; never delete or duplicate work that is pending or processing.
+      const mode = retry ? "retry" : "continue";
+      const {deletedIds, activeIds} = await queueDeleteGraphChapterEntries({
+        graphId,
+        chapter,
+        legacyEntryTypes: this.getQueueEntryTypes(),
+      });
+      if (activeIds.length > 0) {
+        logger.info(`${graphId} continueGraphPipeline: ${mode} skipped - chapter ${chapter} already has active queue entries [${activeIds.join(", ")}]`);
+        return;
       }
-      if (!graphItem.processingChapters.includes(startChapter)) {
-        graphItem.processingChapters.push(startChapter);
-        await updateGraph({
-          graphData: {
-            id: graphId,
-            processingChapters: graphItem.processingChapters,
-          },
-        });
-        logger.info(`${graphId} Marked chapter ${startChapter} as processing for graph at pipeline start`);
-      }
+      logger.info(`${graphId} continueGraphPipeline: ${mode} - deleted ${deletedIds.length} finished queue entries for chapter ${chapter}`);
+
+      await graphMarkChapterProcessing({graphId, chapter});
+      graphItem.processingChapters = [...new Set([...(graphItem.processingChapters || []).map(normalizeChapter), chapter])];
+      logger.info(`${graphId} Marked chapter ${chapter} as processing for graph at pipeline start`);
     }
 
     // Set the ending chapter if provided
     if (endChapter !== undefined) {
-      graphItem.endChapter = endChapter;
+      graphItem.endChapter = normalizeChapter(endChapter);
       logger.debug(`${graphId} continueGraphPipeline: Will end at chapter ${endChapter}`);
     }
 
@@ -222,10 +245,14 @@ export default class GraphPipelineBase {
    * @return {Promise<Array<Object>>} The added queue entries
    */
   async addItemToQueue({entryType, graphItem}) {
+    // A new queue entry starts with a fresh retry budget; graphQueue copies the entry's
+    // retryCount into the params it runs with, so it must not leak into the next step
+    const entryParams = {...graphItem};
+    delete entryParams.retryCount;
     return await queueAddEntries({
       types: ["graph"],
       entryTypes: [entryType],
-      entryParams: [graphItem],
+      entryParams: [entryParams],
       uniques: [graphQueueToUnique({
         type: "graph",
         entryType: entryType,
@@ -295,14 +322,17 @@ export default class GraphPipelineBase {
       }
     }
 
-    await updateGraph({
-      graphData: updateGraphStatus({
-        graphItem,
-        statusName: currentStep,
-        statusValue,
-        nextGraphStep: nextStep,
-      }),
-    });
+    // Chapter arrays and failure records are owned by atomic helpers; never write the queue
+    // snapshot's copies back, or a concurrent release/completion would be clobbered.
+    const graphData = Object.fromEntries(
+        Object.entries(updateGraphStatus({
+          graphItem,
+          statusName: currentStep,
+          statusValue,
+          nextGraphStep: nextStep,
+        })).filter(([key]) => !SNAPSHOT_FIELDS_NOT_WRITTEN_BACK.includes(key)),
+    );
+    await updateGraph({graphData});
 
     await CatalogueProgressTracker.updateProgress(graphItem.sku, {graphId: graphItem.id});
   }

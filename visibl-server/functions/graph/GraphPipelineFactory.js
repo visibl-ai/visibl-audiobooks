@@ -2,6 +2,7 @@
 /* eslint-disable require-jsdoc */
 import GraphPipelineV0 from "./v0/GraphPipelineV0.js";
 import GraphPipelineV0_1 from "./v0.1/GraphPipelineV0_1.js";
+import GraphPipelineV0_2 from "./v0.2/GraphPipelineV0_2.js";
 import logger from "../util/logger.js";
 
 /**
@@ -14,10 +15,10 @@ export default class GraphPipelineFactory {
 
   /**
    * Get a graph pipeline instance for the specified version
-   * @param {string} version - The version of the pipeline to create (default: "v0.1")
+   * @param {string} version - The version of the pipeline to create (default: "v0.2" for new graphs)
    * @return {GraphPipelineBase} The pipeline instance
    */
-  static getPipeline(version = "v0.1") {
+  static getPipeline(version = "v0.2") {
     // Use singleton pattern to avoid creating multiple instances
     if (!GraphPipelineFactory.pipelineInstances) {
       GraphPipelineFactory.pipelineInstances = {};
@@ -29,6 +30,9 @@ export default class GraphPipelineFactory {
           break;
         case "v0.1":
           GraphPipelineFactory.pipelineInstances[version] = new GraphPipelineV0_1();
+          break;
+        case "v0.2":
+          GraphPipelineFactory.pipelineInstances[version] = new GraphPipelineV0_2();
           break;
         // Future versions can be added here
         // case "v1":
@@ -58,7 +62,7 @@ export default class GraphPipelineFactory {
    * @return {string[]} Array of available version strings
    */
   static getAvailableVersions() {
-    return ["v0", "v0.1"]; // Add more versions as they become available
+    return ["v0", "v0.1", "v0.2"]; // Add more versions as they become available
   }
 
   /**
@@ -74,8 +78,8 @@ export default class GraphPipelineFactory {
    * @param {string} params.sku - The SKU of the catalogue item
    * @return {Promise<Object>} Result of scene image composition
    */
-  static async composeSceneImages(version, {graphId, defaultSceneId, scenes, sku, uid}) {
+  static async composeSceneImages(version, params) {
     const pipeline = this.getPipeline(version);
-    return await pipeline.composeSceneImages({graphId, defaultSceneId, scenes, sku, uid});
+    return await pipeline.composeSceneImages(params);
   }
 }
